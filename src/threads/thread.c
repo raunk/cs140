@@ -122,6 +122,33 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+void
+thread_wakeup_sleeping (int64_t ticks)
+{
+    if(list_empty(&wakeup_list)) 
+        return;
+        
+    struct list_elem *e;
+    struct list_elem *start = list_begin (&wakeup_list);
+    int times_to_pop = 0;
+    for (e = list_next (start); e != list_end (&wakeup_list); e = list_next (e)) {
+        struct thread* cur_thread = list_entry(e, struct thread, wakeup_elem);
+        // check if this thread and all remaning threads in the list 
+        // have a wakeup time in the future
+        if(cur_thread->wakeup_tick > ticks)
+            break;
+        
+        times_to_pop++;
+        printf("(WAKING)Current time: %lld\n", ticks);
+        printf("(WAKING)Thread: %d, Wakeup time: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
+        thread_unblock(cur_thread);
+    }
+    
+    int i;
+    for (i = 0; i < times_to_pop; i++)
+        list_pop_front (&wakeup_list);
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void

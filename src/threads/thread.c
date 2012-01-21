@@ -28,6 +28,9 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* Priority queue of threads prioritized by wakeup time. */
+static struct list wakeup_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -70,6 +73,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+bool thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -92,6 +96,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&wakeup_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -226,6 +231,32 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
+}
+
+bool 
+thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+    struct thread* t1 = list_entry(a, struct thread, wakeup_elem);
+    struct thread* t2 = list_entry(b, struct thread, wakeup_elem);
+    return t1->wakeup_tick < t2->wakeup_tick;
+}
+
+/* 
+*/
+void
+thread_add_to_wakeup_list (int64_t wakeup_tick) 
+{
+    struct thread* cur_thread = thread_current();
+    cur_thread->wakeup_tick = wakeup_tick;
+    list_insert_ordered (&wakeup_list, &cur_thread->wakeup_elem, thread_wakeup_tick_less_func, NULL);
+    
+    struct list_elem *e;
+    struct list_elem *start = list_begin (&wakeup_list);
+    printf("---------------- Wakeup LIST -----------------------\n");
+    for (e = list_next (start); e != list_end (&wakeup_list); e = list_next (e)) {
+        struct thread* cur_thread = list_entry(e, struct thread, wakeup_elem);
+        printf("Thread: %d, Wakeup time: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
+    }
+    printf("-----------------------------------------\n\n");
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.

@@ -97,9 +97,6 @@ timer_sleep (int64_t ticks)
   thread_add_to_wakeup_list(start + ticks);
   thread_block();
   intr_set_level (old_level);
-  
-  // while (timer_elapsed (start) < ticks) 
-  //      thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

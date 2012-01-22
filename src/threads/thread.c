@@ -127,7 +127,16 @@ thread_wakeup_sleeping (int64_t ticks)
 {
     if(list_empty(&wakeup_list)) 
         return;
-        
+
+    struct list_elem *first = list_front(&wakeup_list);
+    struct thread* t = list_entry(first, struct thread, wakeup_elem);
+    if(ticks >= t->wakeup_tick)
+     {
+        list_pop_front(&wakeup_list);
+        thread_unblock(t);
+     }
+    
+   /*     
     struct list_elem *e;
     struct list_elem *start = list_begin (&wakeup_list);
     int times_to_pop = 0;
@@ -147,6 +156,7 @@ thread_wakeup_sleeping (int64_t ticks)
     int i;
     for (i = 0; i < times_to_pop; i++)
         list_pop_front (&wakeup_list);
+*/
 }
 
 /* Called by the timer interrupt handler at each timer tick.

@@ -131,7 +131,7 @@ thread_wakeup_sleeping (int64_t ticks)
         struct thread* t = list_entry(first, struct thread, wakeup_elem);
         if(ticks >= t->wakeup_tick)
          {
-           printf("Popping thread %d, wakeup %lld\n", t->tid, t->wakeup_tick);
+        //   printf("Popping thread %d, wakeup %lld\n", t->tid, t->wakeup_tick);
            list_pop_front(&wakeup_list);
            thread_unblock(t);
          }
@@ -290,18 +290,19 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
     struct thread* cur_thread = thread_current();
     cur_thread->wakeup_tick = wakeup_tick;
 
-    printf("Insert Thread %d W: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
+//    printf("Insert Thread %d W: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
 
     list_insert_ordered (&wakeup_list, &cur_thread->wakeup_elem, thread_wakeup_tick_less_func, NULL);
     
     struct list_elem *e;
     struct list_elem *start = list_begin (&wakeup_list);
-    printf("---------------- Wakeup LIST -----------------------\n");
+ /*   printf("---------------- Wakeup LIST -----------------------\n");
     for (e = start; e != list_end (&wakeup_list); e = list_next (e)) {
         struct thread* cur_thread = list_entry(e, struct thread, wakeup_elem);
         printf("Thread: %d, Wakeup time: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
     }
     printf("-----------------------------------------\n\n");
+ */
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.

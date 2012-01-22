@@ -6,8 +6,6 @@
 				   
 ---- GROUP ----
 
->> Fill in the names and email addresses of your group members.
-
 Jeremy Keeshin <jkeeshin@stanford.edu>
 Charlie Fang <charlief@stanford.edu>
 Eric Conner <econner@stanford.edu>
@@ -26,17 +24,34 @@ Eric Conner <econner@stanford.edu>
 
 ---- DATA STRUCTURES ----
 
->> A1: Copy here the declaration of each new or changed `struct' or
->> `struct' member, global or static variable, `typedef', or
->> enumeration.  Identify the purpose of each in 25 words or less.
+// Modifications to thread struct
+
+	struct list_elem wakeup_elem;       
+	/* List element for priority queue of threads to wakeup */
+
+	int64_t wakeup_tick;
+	/* The OS tick that this thread should be woken back up at */
 
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+Timer sleep makes this thread sleep for a specified number of TICKS. To avoid busy
+waiting, this thread is first added to a priority queue specifying when it should
+be woken back up. Then the thread is blocked an interrupts are re-enabled.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+In timer_interrupt, we make a call to our new method called, thread_wakeup_sleeping.
+In this method we determine if there was a thread that should be woken up at this
+system tick. While the list of threads to wakeup was not empty, we check the first 
+element. If this thread should be woken up, we unblock it. 
+
+We made sure this list was ordered--a priority queue--so that on a call to the timer 
+interrupt we have to check only the items at the front of the list, which takes O(1)
+time. 
 
 ---- SYNCHRONIZATION ----
 

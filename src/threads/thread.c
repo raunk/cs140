@@ -407,6 +407,13 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  
+  // Yield CPU if new priority of current thread is no longer
+  // the highest.
+  struct thread *next_ready_t = list_entry(list_front(&ready_list), struct thread, elem);
+  if (new_priority < next_ready_t->priority) {
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */

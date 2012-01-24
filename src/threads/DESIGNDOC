@@ -39,7 +39,7 @@ Eric Conner <econner@stanford.edu>
 
 Timer sleep makes this thread sleep for a specified number of TICKS. To avoid busy
 waiting, this thread is first added to a priority queue specifying when it should
-be woken back up. Then the thread is blocked an interrupts are re-enabled.
+be woken back up. Then the thread is blocked and interrupts are re-enabled.
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?

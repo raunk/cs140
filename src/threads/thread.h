@@ -95,6 +95,10 @@ struct thread
     
     struct list_elem wakeup_elem;       /* List element for priority queue of threads to wakeup */
     int64_t wakeup_tick;                /* A time to wake this thread up */
+    
+    /* Used to implement priority donations. */
+    struct thread *t_donated_to;
+    struct list recvd_donations;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -104,6 +108,13 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+  
+struct donation_elem
+{
+  struct thread *t_donor;
+  struct lock *l; // Lock that t_donor is waiting on.
+  struct list_elem elem;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

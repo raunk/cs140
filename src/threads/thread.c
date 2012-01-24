@@ -478,14 +478,14 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority_for_thread(struct thread* t)
 {
-    return t->priority;
+  return t->priority;
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_get_priority_for_thread(thread_current ());
 }
 
 /* Sets the current thread's nice value to NICE. */

@@ -99,6 +99,7 @@ struct thread
     /* Used to implement priority donations. */
     struct thread *t_donated_to;
     struct list recvd_donations;
+    struct lock *lock_waiting_for;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -112,7 +113,7 @@ struct thread
 struct donation_elem
 {
   struct thread *t_donor;
-  struct lock *l; // Lock that t_donor is waiting on.
+  //struct lock *l; // Lock that t_donor is waiting on.
   struct list_elem elem;
 };
 
@@ -154,5 +155,6 @@ int thread_get_load_avg (void);
 
 void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
+void thread_donate_priority(struct thread* from, struct thread* to, struct lock* for_lock);
 
 #endif /* threads/thread.h */

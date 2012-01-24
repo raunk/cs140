@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -81,6 +82,7 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 bool thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void * aux);
+bool thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 int thread_get_priority_for_thread(struct thread* t);
 
 /* Initializes the threading system by transforming the code
@@ -141,6 +143,47 @@ thread_start (void)
 
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
+}
+
+bool 
+thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+    if(b == NULL) {
+        printf("B IS NULL");
+        return false;
+    }
+    if(a == NULL) {
+        printf("A IS NULL");
+    }
+        
+    struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
+    struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
+    printf("HERE");
+    printf("COMPARING TWO DONATION ELEMS, %d\n", d1->t_donor->tid);
+
+    return thread_get_priority_for_thread(d1->t_donor) < 
+            thread_get_priority_for_thread(d2->t_donor);
+}
+
+void
+thread_donate_priority(struct thread* from, struct thread* to, struct lock* for_lock)
+{
+    // from can only donate to one thread at a time
+    from->t_donated_to = to;
+    
+    // process nested donations
+    struct thread *cur_thread = to;
+
+    while(cur_thread != NULL) {
+        // add donation elem for from to cur's recvd_donations
+        struct donation_elem* cur_elem = (struct donation_elem*)malloc(sizeof(struct donation_elem));
+        cur_elem->t_donor = from;
+        cur_elem->elem.prev = NULL;
+        cur_elem->elem.next = NULL;
+
+        list_insert_ordered (&cur_thread->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
+        
+        cur_thread = cur_thread->t_donated_to;
+    }
 }
 
 /* This is called by the timer interrupt handler at each timer 
@@ -257,7 +300,7 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
+  
   intr_set_level (old_level);
 
   /* Add to run queue. */
@@ -604,6 +647,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  
+  /* Initialize this thread's list of recvd donations */
+  list_init(&t->recvd_donations);
+  
   list_push_back (&all_list, &t->allelem);
 }
 

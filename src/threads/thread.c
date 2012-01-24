@@ -15,6 +15,12 @@
 #include "userprog/process.h"
 #endif
 
+#ifdef DEBUG
+#define debug(fmt, ...)  printf(fmt, __VA_ARGS__)
+#else
+#define debug(fmt, ...)  do {} while (0)
+#endif
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -107,6 +113,19 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+
+void
+thread_print_ready_list(void)
+{
+    struct list_elem * e;
+    for(e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+    {
+        struct thread *t = list_entry(e, struct thread, elem);
+        debug("%d (%d) ->", t->tid, t->priority);
+    }  
+    debug("\n");
+}
+
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
@@ -141,7 +160,7 @@ thread_wakeup_sleeping (int64_t ticks)
         struct thread* t = list_entry(first, struct thread, wakeup_elem);
         if(ticks >= t->wakeup_tick)
          {
-        //   printf("Popping thread %d, wakeup %lld\n", t->tid, t->wakeup_tick);
+           debug("Popping thread %d, wakeup %lld\n", t->tid, t->wakeup_tick);
            list_pop_front(&wakeup_list);
            thread_unblock(t);
          }
@@ -287,7 +306,7 @@ bool thread_priority_function(const struct list_elem *a, const struct list_elem*
     struct thread *t1 = list_entry(a, struct thread, elem);
     struct thread *t2 = list_entry(b, struct thread, elem);
 
-    return thread_get_priority_for_thread(t1) < 
+    return thread_get_priority_for_thread(t1) > 
            thread_get_priority_for_thread(t2);    
 }
 
@@ -308,18 +327,29 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-//  list_push_back (&ready_list, &t->elem);
+  thread_print_ready_list();
+
+  //list_push_back (&ready_list, &t->elem);
+  debug("Current thread (%d)\n", thread_current()->tid);
+  debug("Thread unblock (%d)\n", t->tid);
   list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
   t->status = THREAD_READY;
 
+  thread_print_ready_list();
   // If the current thread priority is less than this threads priority
   // call schedule
-  int cur_priority = thread_get_priority_for_thread(thread_current ());
-  int this_priority = thread_get_priority_for_thread(t);
-
-  if(cur_priority < this_priority)
+  if(thread_current() != idle_thread)
   {
-    thread_yield(); 
+    int cur_priority = thread_get_priority_for_thread(thread_current ());
+    int this_priority = thread_get_priority_for_thread(t);
+
+    debug("Cur priority %d\n", cur_priority);
+    debug("This priority %d\n", this_priority);
+    if(cur_priority < this_priority)
+    {
+        debug("Yield!\n");
+        thread_yield(); 
+    }
   }
   intr_set_level (old_level);
 }
@@ -389,10 +419,24 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+
+  debug("IN THREAD YIELD\n");
+  debug("Running %d\n", cur->tid);
+
+  thread_print_ready_list();
   if (cur != idle_thread) 
+  {
     list_insert_ordered(&ready_list, &cur->elem, thread_priority_function, NULL);
 //  list_push_back (&ready_list, &cur->elem);
-
+    debug("WAS NOT IDLE THREAD\n");
+  } else{
+    debug("WAS IDLE THREAD\n");
+    debug("Idle thread id %d\n", cur->tid);
+  }
+  thread_print_ready_list();
+  struct list_elem *l = list_front(&ready_list);
+  struct thread *t = list_entry(l, struct thread, elem);
+  debug("Should switch to %d\n", t->tid);
 
   cur->status = THREAD_READY;
   schedule ();
@@ -657,6 +701,11 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+
+  debug("====\n");
+  thread_print_ready_list();
+  debug("Was running %d\n", cur->tid);
+  debug("Scheduling %d\n", next->tid);
 }
 
 /* Returns a tid to use for a new thread. */

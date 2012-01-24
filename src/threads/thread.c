@@ -276,19 +276,17 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
     struct thread* cur_thread = thread_current();
     cur_thread->wakeup_tick = wakeup_tick;
 
-//    printf("Insert Thread %d W: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
-
     list_insert_ordered (&wakeup_list, &cur_thread->wakeup_elem, thread_wakeup_tick_less_func, NULL);
-    
-    struct list_elem *e;
-    struct list_elem *start = list_begin (&wakeup_list);
- /*   printf("---------------- Wakeup LIST -----------------------\n");
-    for (e = start; e != list_end (&wakeup_list); e = list_next (e)) {
-        struct thread* cur_thread = list_entry(e, struct thread, wakeup_elem);
-        printf("Thread: %d, Wakeup time: %lld\n", cur_thread->tid, cur_thread->wakeup_tick);
-    }
-    printf("-----------------------------------------\n\n");
- */
+}
+
+bool thread_priority_function(const struct list_elem *a, const struct list_elem* b,
+        void *aux)
+{
+    struct thread *t1 = list_entry(a, struct thread, elem);
+    struct thread *t2 = list_entry(b, struct thread, elem);
+
+    return thread_get_priority_for_thread(t1) < 
+           thread_get_priority_for_thread(t2);    
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -308,7 +306,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+//  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -379,7 +378,10 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, thread_priority_function, NULL);
+//  list_push_back (&ready_list, &cur->elem);
+
+
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -407,6 +409,13 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+}
+
+/* Returns the priority for T, the thread passed as a parameter */
+int
+thread_get_priority_for_thread(struct thread* t)
+{
+    return t->priority;
 }
 
 /* Returns the current thread's priority. */

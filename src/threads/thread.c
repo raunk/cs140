@@ -311,6 +311,16 @@ thread_unblock (struct thread *t)
 //  list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
   t->status = THREAD_READY;
+
+  // If the current thread priority is less than this threads priority
+  // call schedule
+  int cur_priority = thread_get_priority_for_thread(thread_current ());
+  int this_priority = thread_get_priority_for_thread(t);
+
+  if(cur_priority < this_priority)
+  {
+    thread_yield(); 
+  }
   intr_set_level (old_level);
 }
 

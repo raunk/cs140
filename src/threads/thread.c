@@ -74,7 +74,8 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 bool thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
-bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void *aux);
+bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void * aux);
+int thread_get_priority_for_thread(struct thread* t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -281,7 +282,7 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
 }
 
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b,
-        void *aux)
+        void* aux)
 {
     struct thread *t1 = list_entry(a, struct thread, elem);
     struct thread *t2 = list_entry(b, struct thread, elem);

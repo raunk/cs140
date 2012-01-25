@@ -97,7 +97,7 @@ struct thread
     int64_t wakeup_tick;                /* A time to wake this thread up */
     
     /* Used to implement priority donations. */
-    struct thread *t_donated_to;
+    struct thread *t_donating_to;
     struct list recvd_donations;
     struct lock *lock_waiting_for;
 
@@ -113,8 +113,9 @@ struct thread
 struct donation_elem
 {
   struct thread *t_donor;
-  //struct lock *l; // Lock that t_donor is waiting on.
+  struct lock *l; // Lock that t_donor is waiting on, either directly or indirectly via nested donation.
   struct list_elem elem;
+  int priority;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -155,6 +156,7 @@ int thread_get_load_avg (void);
 
 void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
-void thread_donate_priority(struct thread* from, struct thread* to, struct lock* for_lock);
+void thread_donate_priority(struct thread* donor_t);
+bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux);
 
 #endif /* threads/thread.h */

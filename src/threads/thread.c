@@ -147,43 +147,54 @@ thread_start (void)
 
 bool 
 thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
-    if(b == NULL) {
-        printf("B IS NULL");
-        return false;
-    }
-    if(a == NULL) {
-        printf("A IS NULL");
-    }
-        
-    struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
-    struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
-    printf("HERE");
-    printf("COMPARING TWO DONATION ELEMS, %d\n", d1->t_donor->tid);
+  struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
+  struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
 
-    return thread_get_priority_for_thread(d1->t_donor) < 
-            thread_get_priority_for_thread(d2->t_donor);
+  return thread_get_priority_for_thread(d1->t_donor) > 
+          thread_get_priority_for_thread(d2->t_donor);
 }
 
 void
-thread_donate_priority(struct thread* from, struct thread* to, struct lock* for_lock)
-{
-    // from can only donate to one thread at a time
-    from->t_donated_to = to;
+thread_donate_priority(struct thread* t_donor)
+{  
+  // process nested donations
+  struct thread *t_rec_prev = t_donor;
+  struct thread *t_rec = t_donor->t_donating_to;
+  int priority_to_donate = thread_get_priority_for_thread(t_donor);
+
+  while (t_rec != NULL) {
+    //printf("thread %d donating p %d to thread %d with p %d\n", t_donor->tid, priority_to_donate, t_rec->tid, t_rec->priority);
+  
+    // add donation elem for from to rec_t's recvd_donations
+    struct donation_elem* cur_elem = (struct donation_elem*) malloc(sizeof(struct donation_elem));
+    cur_elem->t_donor = t_donor;
+    cur_elem->l = t_rec_prev->lock_waiting_for;
+    cur_elem->elem.prev = NULL;
+    cur_elem->elem.next = NULL;
+    cur_elem->priority = priority_to_donate;
+
+    list_insert_ordered (&t_rec->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
     
-    // process nested donations
-    struct thread *cur_thread = to;
+    t_rec_prev = t_rec;
+    t_rec = t_rec->t_donating_to;
+  }
+}
 
-    while(cur_thread != NULL) {
-        // add donation elem for from to cur's recvd_donations
-        struct donation_elem* cur_elem = (struct donation_elem*)malloc(sizeof(struct donation_elem));
-        cur_elem->t_donor = from;
-        cur_elem->elem.prev = NULL;
-        cur_elem->elem.next = NULL;
-
-        list_insert_ordered (&cur_thread->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
-        
-        cur_thread = cur_thread->t_donated_to;
+void
+thread_remove_donations(struct thread* t, struct lock* for_lock)
+{
+  struct list_elem *e;
+  struct list *recvd_donations = &t->recvd_donations;
+  for(e = list_begin(recvd_donations); e != list_end(recvd_donations); )
+  {
+    struct donation_elem *donation = list_entry(e, struct donation_elem, elem);
+    struct list_elem *next_e = list_next(e);
+    if (donation->l == for_lock) {
+      list_remove(e);
+      free(donation);
     }
+    e = next_e;
+  }
 }
 
 /* This is called by the timer interrupt handler at each timer 
@@ -383,7 +394,7 @@ thread_unblock (struct thread *t)
   // call schedule
   if(thread_current() != idle_thread)
   {
-    int cur_priority = thread_get_priority_for_thread(thread_current ());
+    int cur_priority = thread_get_priority();
     int this_priority = thread_get_priority_for_thread(t);
 
     debug("Cur priority %d\n", cur_priority);
@@ -521,7 +532,14 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority_for_thread(struct thread* t)
 {
-  return t->priority;
+  int priority = t->priority;
+  if (!list_empty(&t->recvd_donations)) {
+    struct donation_elem *d_elem =
+        list_entry(list_front(&t->recvd_donations), struct donation_elem, elem);
+    if (d_elem->priority > priority)
+      priority = d_elem->priority;
+  }
+  return priority;
 }
 
 /* Returns the current thread's priority. */

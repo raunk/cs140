@@ -68,7 +68,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-    //  list_push_back (&sema->waiters, &thread_current ()->elem);
+      //list_push_back (&sema->waiters, &thread_current ()->elem);
       list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_priority_function, NULL);      
       thread_block ();
     }
@@ -114,10 +114,11 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
   sema->value++;
+  if (!list_empty (&sema->waiters)) {
+    struct thread* t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+    thread_unblock (t);
+  }
   intr_set_level (old_level);
 }
 
@@ -233,6 +234,22 @@ lock_try_acquire (struct lock *lock)
   return success;
 }
 
+void
+lock_print_waiters (struct lock *lock)
+{
+  struct list_elem * e;
+  if(list_empty(&lock->semaphore.waiters)) {
+    printf ("NO WAITERS");
+    return;
+  }
+  for(e = list_begin(&lock->semaphore.waiters); e != list_end(&lock->semaphore.waiters); e = list_next(e))
+  {
+      struct thread *t = list_entry(e, struct thread, elem);
+      printf("%d (%d) ->", t->tid, thread_get_priority_for_thread (t));
+  }  
+  printf("\n");
+}
+
 /* Releases LOCK, which must be owned by the current thread.
 
    An interrupt handler cannot acquire a lock, so it does not
@@ -246,10 +263,9 @@ lock_release (struct lock *lock)
   
   enum intr_level old_level = intr_disable ();
   thread_remove_donations(lock->holder, lock);
-  intr_set_level (old_level);
-  
   lock->holder = NULL;
-  
+  intr_set_level (old_level);
+
   sema_up (&lock->semaphore);
 }
 

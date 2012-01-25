@@ -158,5 +158,6 @@ void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
 void thread_donate_priority(struct thread* donor_t);
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux);
+void thread_print_ready_list(void);
 
 #endif /* threads/thread.h */

@@ -147,6 +147,7 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
+int thread_get_priority_for_thread(struct thread* t);
 void thread_set_priority (int);
 
 int thread_get_nice (void);
@@ -157,7 +158,9 @@ int thread_get_load_avg (void);
 void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
 void thread_donate_priority(struct thread* donor_t);
+void thread_remove_donations(struct thread* t, struct lock* for_lock);
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux);
 void thread_print_ready_list(void);
+void thread_yield_if_not_highest_priority(void);
 
 #endif /* threads/thread.h */

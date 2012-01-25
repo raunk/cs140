@@ -203,7 +203,7 @@ lock_acquire (struct lock *lock)
   // donate priority if someone holds the lock we want
   enum intr_level old_level = intr_disable ();
    
-  if(lock->holder != NULL) {
+  if (lock->holder != NULL) {
     cur_thread->lock_waiting_for = lock;
     cur_thread->t_donating_to = lock->holder;
     thread_donate_priority(cur_thread);
@@ -211,6 +211,8 @@ lock_acquire (struct lock *lock)
   intr_set_level (old_level);
 
   sema_down (&lock->semaphore);
+  cur_thread->t_donating_to = NULL;
+  cur_thread->lock_waiting_for = NULL;
   lock->holder = cur_thread;
 }
 
@@ -267,6 +269,11 @@ lock_release (struct lock *lock)
   intr_set_level (old_level);
 
   sema_up (&lock->semaphore);
+  
+  /*
+  old_level = intr_disable ();
+  thread_yield_if_not_highest_priority();
+  intr_set_level (old_level); */
 }
 
 /* Returns true if the current thread holds LOCK, false

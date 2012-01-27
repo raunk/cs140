@@ -397,34 +397,29 @@ thread_unblock (struct thread *t)
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
-
+  
+  /*
+  * Disable interrupts to change the state of the thread to ready.
+  * This needs to happen atomically so that the state stays in sync.
+  */
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  thread_print_ready_list();
-
-  //list_push_back (&ready_list, &t->elem);
-  debug("Current thread (%d)\n", thread_current()->tid);
-  debug("Thread unblock (%d)\n", t->tid);
   list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
   t->status = THREAD_READY;
-
-  thread_print_ready_list();
+  
   // If the current thread priority is less than this threads priority
-  // call schedule
+  // yield immediately
   if(thread_current() != idle_thread)
   {
     int cur_priority = thread_get_priority();
     int this_priority = thread_get_priority_for_thread(t);
-
-    debug("Cur priority %d\n", cur_priority);
-    debug("This priority %d\n", this_priority);
     if(cur_priority < this_priority)
     {
-        debug("Yield!\n");
         thread_yield(); 
     }
   }
   intr_set_level (old_level);
+  
 }
 
 /* Returns the name of the running thread. */
@@ -492,27 +487,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-
-  debug("IN THREAD YIELD\n");
-  debug("Running %d\n", cur->tid);
-
-  thread_print_ready_list();
   if (cur != idle_thread) 
   {
     list_insert_ordered(&ready_list, &cur->elem, thread_priority_function, NULL);
-//  list_push_back (&ready_list, &cur->elem);
-    debug("WAS NOT IDLE THREAD\n");
-  } else{
-    debug("WAS IDLE THREAD\n");
-    debug("Idle thread id %d\n", cur->tid);
   }
-  thread_print_ready_list();
-  struct list_elem *l = list_front(&ready_list);
-  struct thread *t = list_entry(l, struct thread, elem);
-  if(t) {
-    debug("Should switch to %d\n", t->tid);
-  }
-
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);

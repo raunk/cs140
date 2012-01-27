@@ -84,6 +84,8 @@ bool thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void * aux);
 bool thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 int thread_get_priority_for_thread(struct thread* t);
+void thread_yield_if_not_highest_priority(void);
+void thread_reinsert_into_list(struct thread *t, struct list *list);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -150,8 +152,15 @@ thread_donation_priority_less_func (const struct list_elem *a, const struct list
   struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
   struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
 
-  return thread_get_priority_for_thread(d1->t_donor) > 
-          thread_get_priority_for_thread(d2->t_donor);
+  return d1->priority > d2->priority;
+}
+
+void
+thread_reinsert_into_list(struct thread *t, struct list *list)
+{
+  struct list_elem *elem = &t->elem;
+  list_remove(elem);
+  list_insert_ordered(list, elem, thread_priority_function, NULL);
 }
 
 void
@@ -163,8 +172,10 @@ thread_donate_priority(struct thread* t_donor)
   int priority_to_donate = thread_get_priority_for_thread(t_donor);
 
   while (t_rec != NULL) {
-    //printf("thread %d donating p %d to thread %d with p %d\n", t_donor->tid, priority_to_donate, t_rec->tid, t_rec->priority);
+    // printf("thread %d donating p %d to thread %d with p %d\n", t_donor->tid, priority_to_donate, t_rec->tid, t_rec->priority);
   
+    int t_rec_old_priority = thread_get_priority_for_thread(t_rec);
+    
     // add donation elem for from to rec_t's recvd_donations
     struct donation_elem* cur_elem = (struct donation_elem*) malloc(sizeof(struct donation_elem));
     cur_elem->t_donor = t_donor;
@@ -172,8 +183,14 @@ thread_donate_priority(struct thread* t_donor)
     cur_elem->elem.prev = NULL;
     cur_elem->elem.next = NULL;
     cur_elem->priority = priority_to_donate;
-
+    
     list_insert_ordered (&t_rec->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
+    
+    // If thread priority increases and is in the ready list, re-insert it into the ready list
+    // so that the ready list remains sorted
+    if (priority_to_donate > t_rec_old_priority && t_rec->status == THREAD_READY) {
+      thread_reinsert_into_list(t_rec, &ready_list);
+    }
     
     t_rec_prev = t_rec;
     t_rec = t_rec->t_donating_to;
@@ -514,6 +531,18 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+void
+thread_yield_if_not_highest_priority(void)
+{
+  if (list_empty(&ready_list))
+    return; 
+    
+  struct thread *next_ready_t = list_entry(list_front(&ready_list), struct thread, elem);
+  if (thread_get_priority() < thread_get_priority_for_thread(next_ready_t)) {
+    thread_yield();
+  }
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
@@ -522,10 +551,7 @@ thread_set_priority (int new_priority)
   
   // Yield CPU if new priority of current thread is no longer
   // the highest.
-  struct thread *next_ready_t = list_entry(list_front(&ready_list), struct thread, elem);
-  if (new_priority < next_ready_t->priority) {
-    thread_yield();
-  }
+  thread_yield_if_not_highest_priority();
 }
 
 /* Returns the priority for T, the thread passed as a parameter */
@@ -668,6 +694,8 @@ init_thread (struct thread *t, const char *name, int priority)
   
   /* Initialize this thread's list of recvd donations */
   list_init(&t->recvd_donations);
+  t->t_donating_to = NULL;
+  t->lock_waiting_for = NULL;
   
   list_push_back (&all_list, &t->allelem);
 }

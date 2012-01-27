@@ -211,8 +211,8 @@ lock_acquire (struct lock *lock)
   intr_set_level (old_level);
 
   sema_down (&lock->semaphore);
-  cur_thread->t_donating_to = NULL;
-  cur_thread->lock_waiting_for = NULL;
+//  cur_thread->t_donating_to = NULL;
+//  cur_thread->lock_waiting_for = NULL;
   lock->holder = cur_thread;
 }
 

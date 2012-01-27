@@ -152,8 +152,7 @@ thread_donation_priority_less_func (const struct list_elem *a, const struct list
   struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
   struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
 
-  return thread_get_priority_for_thread(d1->t_donor) > 
-          thread_get_priority_for_thread(d2->t_donor);
+  return d1->priority > d2->priority;
 }
 
 void
@@ -173,7 +172,7 @@ thread_donate_priority(struct thread* t_donor)
   int priority_to_donate = thread_get_priority_for_thread(t_donor);
 
   while (t_rec != NULL) {
-    //printf("thread %d donating p %d to thread %d with p %d\n", t_donor->tid, priority_to_donate, t_rec->tid, t_rec->priority);
+    // printf("thread %d donating p %d to thread %d with p %d\n", t_donor->tid, priority_to_donate, t_rec->tid, t_rec->priority);
   
     int t_rec_old_priority = thread_get_priority_for_thread(t_rec);
     
@@ -186,8 +185,22 @@ thread_donate_priority(struct thread* t_donor)
     cur_elem->priority = priority_to_donate;
     
   //  if (cur_elem->l == NULL) {printf("WTTTFF\n");}
+  
+    // struct list_elem *e;
+    // printf("BEFORE INSERT:\n");
+    // for (e = list_begin (&t_rec->recvd_donations); e != list_end (&t_rec->recvd_donations); e = list_next (e)) {
+    //   struct donation_elem *d = list_entry(e, struct donation_elem, elem);
+    //   printf("Priority: %d\n", d->priority);
+    // }
 
     list_insert_ordered (&t_rec->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
+    
+    
+    // printf("AFTER INSERT:\n");
+    // for (e = list_begin (&t_rec->recvd_donations); e != list_end (&t_rec->recvd_donations); e = list_next (e)) {
+    //   struct donation_elem *d = list_entry(e, struct donation_elem, elem);
+    //   printf("Priority: %d\n", d->priority);
+    // }
     
     // If thread priority increases, re-insert it into any priority queue it may be in.
     if (priority_to_donate > t_rec_old_priority) {

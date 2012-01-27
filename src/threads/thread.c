@@ -184,33 +184,12 @@ thread_donate_priority(struct thread* t_donor)
     cur_elem->elem.next = NULL;
     cur_elem->priority = priority_to_donate;
     
-  //  if (cur_elem->l == NULL) {printf("WTTTFF\n");}
-  
-    // struct list_elem *e;
-    // printf("BEFORE INSERT:\n");
-    // for (e = list_begin (&t_rec->recvd_donations); e != list_end (&t_rec->recvd_donations); e = list_next (e)) {
-    //   struct donation_elem *d = list_entry(e, struct donation_elem, elem);
-    //   printf("Priority: %d\n", d->priority);
-    // }
-
     list_insert_ordered (&t_rec->recvd_donations, &cur_elem->elem, thread_donation_priority_less_func, NULL);
     
-    
-    // printf("AFTER INSERT:\n");
-    // for (e = list_begin (&t_rec->recvd_donations); e != list_end (&t_rec->recvd_donations); e = list_next (e)) {
-    //   struct donation_elem *d = list_entry(e, struct donation_elem, elem);
-    //   printf("Priority: %d\n", d->priority);
-    // }
-    
-    // If thread priority increases, re-insert it into any priority queue it may be in.
-    if (priority_to_donate > t_rec_old_priority) {
-      struct lock *t_rec_lock_waiting_for = t_rec->lock_waiting_for;
-      if (t_rec_lock_waiting_for != NULL) {
-        thread_reinsert_into_list(t_rec, &t_rec_lock_waiting_for->semaphore.waiters); 
-      }
-      if (t_rec->status == THREAD_READY) {
-        thread_reinsert_into_list(t_rec, &ready_list);
-      }
+    // If thread priority increases and is in the ready list, re-insert it into the ready list
+    // so that the ready list remains sorted
+    if (priority_to_donate > t_rec_old_priority && t_rec->status == THREAD_READY) {
+      thread_reinsert_into_list(t_rec, &ready_list);
     }
     
     t_rec_prev = t_rec;

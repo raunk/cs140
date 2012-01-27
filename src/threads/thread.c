@@ -125,7 +125,9 @@ thread_print_ready_list(void)
     for(e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
     {
         struct thread *t = list_entry(e, struct thread, elem);
-        debug("%d (%d) ->", t->tid, t->priority);
+        if(t) {
+          debug("%d (%d) ->", t->tid, t->priority);
+        }
     }  
     debug("\n");
 }
@@ -148,7 +150,7 @@ thread_start (void)
 }
 
 bool 
-thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+thread_donation_priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux __attribute__((unused))) {
   struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
   struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
 
@@ -354,7 +356,7 @@ thread_block (void)
 }
 
 bool 
-thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+thread_wakeup_tick_less_func (const struct list_elem *a, const struct list_elem *b, void *aux __attribute__((unused))) {
     struct thread* t1 = list_entry(a, struct thread, wakeup_elem);
     struct thread* t2 = list_entry(b, struct thread, wakeup_elem);
     return t1->wakeup_tick < t2->wakeup_tick;
@@ -372,7 +374,7 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
 }
 
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b,
-        void* aux)
+        void* aux __attribute__((unused)))
 {
     struct thread *t1 = list_entry(a, struct thread, elem);
     struct thread *t2 = list_entry(b, struct thread, elem);
@@ -507,7 +509,9 @@ thread_yield (void)
   thread_print_ready_list();
   struct list_elem *l = list_front(&ready_list);
   struct thread *t = list_entry(l, struct thread, elem);
-  debug("Should switch to %d\n", t->tid);
+  if(t) {
+    debug("Should switch to %d\n", t->tid);
+  }
 
   cur->status = THREAD_READY;
   schedule ();

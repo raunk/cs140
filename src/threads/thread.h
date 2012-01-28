@@ -91,7 +91,7 @@ struct thread
     struct list_elem priority_elem;     /* List element for multilevel queues */ 
 
     int nice;                           /* Nice value between -20 and 20 */
-    int recent_cpu                      /* Measurement of thread's recent cpu usage */
+    int recent_cpu;                     /* Measurement of thread's recent cpu usage */
 
     struct list_elem allelem;           /* List element for all threads list. */
 

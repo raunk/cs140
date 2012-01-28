@@ -18,18 +18,19 @@ int fp_multiply_integer(int x, int n);
 int64_t fp_divide(int x, int y);
 int fp_divide_integer(int x, int n);
 
+/* Convert and integer to fixed point format */
 int fp_integer_to_fixed(int n)
 {
     return n * FIXED_POINT_F;
 }
 
-
+/* Convert fixed point format back to integer, rounded to zero  */
 int fp_fixed_to_integer_zero(int x)
 {
     return x / FIXED_POINT_F;
 }
 
-
+/* Convert fixed point format to integer, rounded to nearest */
 int fp_fixed_to_integer_nearest(int x)
 {
     if(x >= 0)

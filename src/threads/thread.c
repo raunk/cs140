@@ -101,6 +101,7 @@ int thread_get_priority_for_thread(struct thread* t);
 void thread_yield_if_not_highest_priority(void);
 void thread_reinsert_into_list(struct thread *t, struct list *list);
 void thread_initialize_priority_queues(void);
+void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -165,9 +166,30 @@ void thread_compute_load_average(void)
   load_avg = fp_add(left, right);
 }
 
+/* Compute recent cpu according to the formula:
+
+    recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice
+  
+  the multiplier (2*load_avg)/(2*load_avg + 1) has already been computed and 
+  is passed in using the aux parameter, since it is the same for all threads */
+void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux)
+{
+  int multiplier = *(int*)aux;
+  int64_t left = fp_multiply(multiplier, t->recent_cpu);
+  int64_t result = fp_add_integer(left, t->nice);
+  printf("Result %lld\n", result);
+  t->recent_cpu = result;
+}
+
+/* Compute the recent cpu for all threads. Computer the multiplier for load
+   average that is shared among all threads to pass in to the thread for each
+   callback, which will compute the recent cpu for that thread */
 void thread_compute_recent_cpu(void)
 {
-
+  int top = fp_multiply_integer(load_avg, 2);
+  int bot = fp_add_integer(fp_multiply_integer(load_avg, 2), 1);
+  int64_t multiplier = fp_divide(top, bot);
+  thread_foreach(thread_compute_recent_cpu_for_thread, &multiplier);
 }
 
 void

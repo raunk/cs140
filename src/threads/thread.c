@@ -71,8 +71,17 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-static int load_avg;                /* Estimate for number of threads ready to
-                                   run over the past minute */
+/* Estimate for number of threads ready to run over the past minute.
+   This number is actually a 17.14 fixed point integer. */
+static int load_avg;                
+
+/* Array of PRI_MAX + 1 queues for the multi-level feedback
+   queue scheduler */
+static struct list queue_list[PRI_MAX+1];
+
+/* This represents the total number of ready threads, or the total size
+  all all threads in the queue_list */
+static int mlfqs_queue_size;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -91,6 +100,7 @@ bool thread_donation_priority_less_func (const struct list_elem *a, const struct
 int thread_get_priority_for_thread(struct thread* t);
 void thread_yield_if_not_highest_priority(void);
 void thread_reinsert_into_list(struct thread *t, struct list *list);
+void thread_initialize_priority_queues(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -115,6 +125,13 @@ thread_init (void)
   list_init (&all_list);
   list_init (&wakeup_list);
 
+  if(thread_mlfqs)
+  {
+    printf("MLFQS Enabled\n");
+    thread_initialize_priority_queues();
+    mlfqs_queue_size = 0; 
+  }
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -122,6 +139,36 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+/* Initialize the queues for the multi-level feedback queue
+   scheduler */
+void 
+thread_initialize_priority_queues(void)
+{
+    int i;
+    for(i = 0; i <= PRI_MAX; i++)
+    {
+        list_init(&queue_list[i]);      
+    }
+}
+
+
+
+void thread_compute_priorities(void)
+{
+
+}
+
+void thread_compute_load_average(void)
+{
+  int left = fp_multiply(LOAD_AVG_MULTIPLIER, load_avg);
+  int right = fp_multiply_integer(LOAD_AVG_READY_MULTIPLIER, mlfqs_queue_size);
+  load_avg = fp_add(left, right);
+}
+
+void thread_compute_recent_cpu(void)
+{
+
+}
 
 void
 thread_print_ready_list(void)
@@ -566,23 +613,23 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  thread_current ()->nice = nice;
+  // TODO: recalculate priority
+  // TODO: if no longer has highest priority, yield
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp_fixed_to_integer_zero(fp_multiply_integer(load_avg, 100)); 
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -678,6 +725,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  /* Set thread nice and recent cpu to 0 */
+  t->nice = 0;
+  t->recent_cpu = 0;
   
   /* Initialize this thread's list of recvd donations */
   list_init(&t->recvd_donations);

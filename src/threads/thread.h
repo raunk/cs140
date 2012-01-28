@@ -128,6 +128,12 @@ struct donation_elem
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
+/* Constants for formulas in multi-level feedback queue scheduler */
+
+#define LOAD_AVG_MULTIPLIER 16110
+#define LOAD_AVG_READY_MULTIPLIER 273
+
+
 void thread_init (void);
 void thread_start (void);
 
@@ -167,5 +173,10 @@ void thread_remove_donations(struct thread* t, struct lock* for_lock);
 bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux);
 void thread_print_ready_list(void);
 void thread_yield_if_not_highest_priority(void);
+
+/* Re-compute methods for multi-level feedback queue scheduler */
+void thread_compute_priorities(void);
+void thread_compute_load_average(void);
+void thread_compute_recent_cpu(void);
 
 #endif /* threads/thread.h */

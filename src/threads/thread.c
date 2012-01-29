@@ -178,8 +178,8 @@ void
 thread_compute_recent_cpu_for_thread(struct thread* t, void *aux)
 {
   int multiplier = *(int*)aux;
-  int64_t left = fp_multiply(multiplier, t->recent_cpu);
-  int64_t result = fp_add_integer(left, t->nice);
+  int left = fp_multiply(multiplier, t->recent_cpu);
+  int result = fp_add_integer(left, t->nice);
   t->recent_cpu = result;
 }
 
@@ -190,7 +190,7 @@ void thread_compute_recent_cpu(void)
 {
   int top = fp_multiply_integer(load_avg, 2);
   int bot = fp_add_integer(fp_multiply_integer(load_avg, 2), 1);
-  int64_t multiplier = fp_divide(top, bot);
+  int multiplier = fp_divide(top, bot);
   thread_foreach(thread_compute_recent_cpu_for_thread, &multiplier);
 }
 

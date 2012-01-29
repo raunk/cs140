@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "threads/fixed-point.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -179,7 +180,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
 
   // Update the recent_cpu for the current thread.
-  thread_current ()->recent_cpu++;
+  thread_current ()->recent_cpu = fp_add_integer(thread_current()->recent_cpu, 1);  
 
   // Every PRIORITY_TICK_UPDATE ticks, we should recompute thread
   // priorities

@@ -177,7 +177,6 @@ void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux)
   int multiplier = *(int*)aux;
   int64_t left = fp_multiply(multiplier, t->recent_cpu);
   int64_t result = fp_add_integer(left, t->nice);
-  printf("Result %lld\n", result);
   t->recent_cpu = result;
 }
 

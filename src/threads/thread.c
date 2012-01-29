@@ -154,12 +154,14 @@ thread_initialize_priority_queues(void)
 
 
 
-void thread_compute_priorities(void)
+void 
+thread_compute_priorities(void)
 {
 
 }
 
-void thread_compute_load_average(void)
+void 
+thread_compute_load_average(void)
 {
   int left = fp_multiply(LOAD_AVG_MULTIPLIER, load_avg);
   int right = fp_multiply_integer(LOAD_AVG_READY_MULTIPLIER, mlfqs_queue_size);
@@ -172,7 +174,8 @@ void thread_compute_load_average(void)
   
   the multiplier (2*load_avg)/(2*load_avg + 1) has already been computed and 
   is passed in using the aux parameter, since it is the same for all threads */
-void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux)
+void 
+thread_compute_recent_cpu_for_thread(struct thread* t, void *aux)
 {
   int multiplier = *(int*)aux;
   int64_t left = fp_multiply(multiplier, t->recent_cpu);

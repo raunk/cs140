@@ -13,9 +13,9 @@ int fp_add(int x, int y);
 int fp_subtract(int x, int y);
 int fp_add_integer(int x, int n);
 int fp_subtract_integer(int x, int n);
-int64_t fp_multiply(int x, int y);
+int fp_multiply(int x, int y);
 int fp_multiply_integer(int x, int n);
-int64_t fp_divide(int x, int y);
+int fp_divide(int x, int y);
 int fp_divide_integer(int x, int n);
 
 

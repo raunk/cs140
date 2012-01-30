@@ -71,6 +71,11 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+
+/* 0/1 indicating whether we are in a timer interrupt */
+int in_timer_interrupt;
+
+
 /* Estimate for number of threads ready to run over the past minute.
    This number is actually a 17.14 fixed point integer. */
 static int load_avg;                
@@ -102,6 +107,7 @@ void thread_yield_if_not_highest_priority(void);
 void thread_reinsert_into_list(struct thread *t, struct list *list);
 void thread_initialize_priority_queues(void);
 void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
+void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -138,6 +144,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  in_timer_interrupt = 0;
 }
 
 /* Initialize the queues for the multi-level feedback queue
@@ -152,12 +160,28 @@ thread_initialize_priority_queues(void)
     }
 }
 
+/* Compute a priority for the current thread using the formula
+    priority = PRI_MAX - (recent_cpu / 4) - (nice * 2) */
+void
+thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED)
+{
+//  if(t == idle_thread) return;
+  int cpu_part = fp_fixed_to_integer_zero(fp_divide_integer(t->recent_cpu, 4));
+ // printf("Cpu part %d\n", cpu_part);
+ // printf("Thread id %d\n", t->tid); 
+ // printf("Thread pr %d\n", t->priority);
+//  t->priority = 3; 
+  t->priority = PRI_MAX - cpu_part - (t->nice * 2);
+//  printf("Priority %d\n", t->priority);  
+}
 
 
+/* Compute the priority for all of the threads. This is written as a simple
+   wrapper to the thread foreach function */
 void 
 thread_compute_priorities(void)
 {
-
+  thread_foreach(thread_compute_priority_for_thread, NULL);
 }
 
 void 
@@ -485,7 +509,7 @@ thread_unblock (struct thread *t)
   
   // If the current thread priority is less than this threads priority
   // yield immediately
-  if(thread_current() != idle_thread)
+  if(thread_current() != idle_thread && !in_timer_interrupt )
   {
     int cur_priority = thread_get_priority();
     int this_priority = thread_get_priority_for_thread(t);

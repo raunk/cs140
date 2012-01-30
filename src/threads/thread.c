@@ -112,6 +112,7 @@ void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
 static void thread_add_to_queue(struct thread* t);
 static void thread_remove_from_queue(struct thread* t);
 
+static struct thread * thread_pop_max_priority_list(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -711,7 +712,26 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
+/* Return the thread from the highest non-empty queue. This method should
+   only be called when the size of the entire queue_list is greater than 0 */
+static struct thread *
+thread_pop_max_priority_list(void)
+{
+  ASSERT(mlfqs_queue_size > 0);
+  int cur_priority;
+  for(cur_priority = PRI_MAX; cur_priority >= 0; cur_priority--)
+  {
+    struct list* cur_list = &queue_list[cur_priority];
+    if(!list_empty(cur_list))
+    {
+      return list_entry(list_pop_front(cur_list), struct thread, priority_elem);
+    }
+  }
+  return NULL;  // Should not reach here
+}
+
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by

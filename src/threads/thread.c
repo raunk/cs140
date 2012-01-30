@@ -102,6 +102,7 @@ void thread_yield_if_not_highest_priority(void);
 void thread_reinsert_into_list(struct thread *t, struct list *list);
 void thread_initialize_priority_queues(void);
 void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
+void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -152,12 +153,18 @@ thread_initialize_priority_queues(void)
     }
 }
 
-
+void
+thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED)
+{
+  int cpu_part = fp_fixed_to_integer_zero(fp_divide_integer(t->recent_cpu, 4));
+  t->priority = PRI_MAX - cpu_part - (t->nice * 2);
+  printf("Thread %d priority now %d\n", t->tid, t->priority);
+}
 
 void 
 thread_compute_priorities(void)
 {
-
+  thread_foreach(thread_compute_priority_for_thread, NULL);
 }
 
 void 

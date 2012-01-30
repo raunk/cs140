@@ -191,6 +191,15 @@ thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED)
 {
   int cpu_part = fp_fixed_to_integer_zero(fp_divide_integer(t->recent_cpu, 4));
   t->priority = PRI_MAX - cpu_part - (t->nice * 2);
+  if(t->priority < PRI_MIN)
+  {
+    t->priority = PRI_MIN; 
+  }
+
+  if(t->priority > PRI_MAX)
+  {
+    t->priority = PRI_MAX;
+  }
 }
 
 

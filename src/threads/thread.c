@@ -213,7 +213,10 @@ void
 thread_compute_load_average(void)
 {
   int left = fp_multiply(LOAD_AVG_MULTIPLIER, load_avg);
-  int right = fp_multiply_integer(LOAD_AVG_READY_MULTIPLIER, mlfqs_queue_size);
+  int running_thread = 1;
+  if( thread_current () == idle_thread)
+    running_thread = 0;
+  int right = fp_multiply_integer(LOAD_AVG_READY_MULTIPLIER, mlfqs_queue_size + running_thread);
   load_avg = fp_add(left, right);
 }
 
@@ -737,6 +740,7 @@ thread_pop_max_priority_list(void)
     struct list* cur_list = &queue_list[cur_priority];
     if(!list_empty(cur_list))
     {
+      mlfqs_queue_size--;
       return list_entry(list_pop_front(cur_list), struct thread, priority_elem);
     }
   }

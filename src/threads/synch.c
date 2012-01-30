@@ -32,6 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+
+bool cond_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -342,7 +345,7 @@ cond_wait (struct condition *cond, struct lock *lock)
 }
 
 bool cond_priority_function(const struct list_elem *a, const struct list_elem* b,
-        void* aux)
+        void* aux UNUSED)
 {
     struct semaphore_elem *s1 = list_entry(a, struct semaphore_elem, elem);
     struct semaphore_elem *s2 = list_entry(b, struct semaphore_elem, elem);

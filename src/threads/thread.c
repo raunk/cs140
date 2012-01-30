@@ -165,14 +165,8 @@ thread_initialize_priority_queues(void)
 void
 thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED)
 {
-//  if(t == idle_thread) return;
   int cpu_part = fp_fixed_to_integer_zero(fp_divide_integer(t->recent_cpu, 4));
- // printf("Cpu part %d\n", cpu_part);
- // printf("Thread id %d\n", t->tid); 
- // printf("Thread pr %d\n", t->priority);
-//  t->priority = 3; 
   t->priority = PRI_MAX - cpu_part - (t->nice * 2);
-//  printf("Priority %d\n", t->priority);  
 }
 
 
@@ -184,6 +178,13 @@ thread_compute_priorities(void)
   thread_foreach(thread_compute_priority_for_thread, NULL);
 }
 
+/* Compute the load average for the system according to the formula
+
+      load_avg = (59/60)*load_avg + (1/60)*ready_threads
+
+   For this multiplication these constants have been converted to fixed point
+   integer format. The number of ready threads is the number of threads on
+   all of the queues */
 void 
 thread_compute_load_average(void)
 {

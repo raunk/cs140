@@ -686,7 +686,7 @@ void
 thread_set_nice (int nice UNUSED) 
 {
   thread_current ()->nice = nice;
-  // TODO: recalculate priority
+  thread_compute_priority_for_thread(thread_current (), NULL);
   // TODO: if no longer has highest priority, yield
 }
 

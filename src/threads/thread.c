@@ -105,6 +105,7 @@ void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
 void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
 void thread_add_to_queue(struct thread* t);
 void thread_remove_from_queue(struct thread* t);
+static struct thread * thread_pop_max_priority_list(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -520,7 +521,12 @@ thread_unblock (struct thread *t)
   */
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
+  if(thread_mlfqs)
+  {
+    thread_add_to_queue(t);
+  }else{
+    list_insert_ordered(&ready_list, &t->elem, thread_priority_function, NULL);
+  }
   t->status = THREAD_READY;
   
   // If the current thread priority is less than this threads priority
@@ -605,7 +611,12 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
   {
-    list_insert_ordered(&ready_list, &cur->elem, thread_priority_function, NULL);
+    if(thread_mlfqs)
+    {
+      thread_add_to_queue(cur);
+    }else{
+      list_insert_ordered(&ready_list, &cur->elem, thread_priority_function, NULL);
+    }
   }
   cur->status = THREAD_READY;
   schedule ();
@@ -701,8 +712,7 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp_fixed_to_integer_zero(fp_multiply_integer(thread_current ()->recent_cpu, 100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -816,6 +826,25 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+
+/* Return the thread from the highest non-empty queue. This method should
+   only be called when the size of the entire queue_list is greater than 0 */
+static struct thread *
+thread_pop_max_priority_list(void)
+{
+  ASSERT(mlfqs_queue_size > 0);
+  int cur_priority;
+  for(cur_priority = PRI_MAX; cur_priority >= 0; cur_priority--)
+  {
+    struct list* cur_list = &queue_list[cur_priority];
+    if(!list_empty(cur_list))
+    {
+      return list_entry(list_pop_front(cur_list), struct thread, priority_elem);
+    }
+  }
+  return NULL;  // Should not reach here
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -824,10 +853,21 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
-  if (list_empty (&ready_list))
-    return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  if(thread_mlfqs)
+  {
+    if(mlfqs_queue_size == 0)
+    {
+      return idle_thread;
+    }else{
+      return thread_pop_max_priority_list();
+    }
+  }else{
+    if (list_empty (&ready_list))
+      return idle_thread;
+    else
+      return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
+
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -897,11 +937,6 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
-
-  debug("====\n");
-  thread_print_ready_list();
-  debug("Was running %d\n", cur->tid);
-  debug("Scheduling %d\n", next->tid);
 }
 
 /* Returns a tid to use for a new thread. */

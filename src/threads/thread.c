@@ -103,6 +103,8 @@ void thread_reinsert_into_list(struct thread *t, struct list *list);
 void thread_initialize_priority_queues(void);
 void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
 void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
+void thread_add_to_queue(struct thread* t);
+void thread_remove_from_queue(struct thread* t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -152,6 +154,25 @@ thread_initialize_priority_queues(void)
         list_init(&queue_list[i]);      
     }
 }
+
+
+/* Insert thread T into the queue_list in bucket for its current priority */
+void
+thread_add_to_queue(struct thread* t)
+{
+  struct list* cur_list = &queue_list[t->priority];
+  list_push_back(cur_list, &t->priority_elem);
+  mlfqs_queue_size++; 
+}
+
+/* Remove thread T from its list in queue_list */
+void
+thread_remove_from_queue(struct thread* t)
+{
+  list_remove(&t->priority_elem); 
+  mlfqs_queue_size--; 
+}
+
 
 /* Compute a priority for the current thread using the formula
     priority = PRI_MAX - (recent_cpu / 4) - (nice * 2) */
@@ -657,7 +678,8 @@ void
 thread_set_nice (int nice UNUSED) 
 {
   thread_current ()->nice = nice;
-  // TODO: recalculate priority
+
+  thread_compute_priority_for_thread( thread_current (), NULL);
   // TODO: if no longer has highest priority, yield
 }
 

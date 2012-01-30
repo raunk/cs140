@@ -709,8 +709,7 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp_fixed_to_integer_zero(fp_multiply_integer(thread_current ()->recent_cpu, 100));
 }
 
 /* Return the thread from the highest non-empty queue. This method should

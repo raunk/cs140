@@ -71,11 +71,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-
-/* 0/1 indicating whether we are in a timer interrupt */
-int in_timer_interrupt;
-
-
 /* Estimate for number of threads ready to run over the past minute.
    This number is actually a 17.14 fixed point integer. */
 static int load_avg;                
@@ -149,8 +144,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-
-  in_timer_interrupt = 0;
 }
 
 /* Initialize the queues for the multi-level feedback queue
@@ -553,7 +546,7 @@ thread_unblock (struct thread *t)
   
   // If the current thread priority is less than this threads priority
   // yield immediately
-  if(thread_current() != idle_thread && !in_timer_interrupt )
+  if(thread_current() != idle_thread && !intr_context() )
   {
     int cur_priority = thread_get_priority();
     int this_priority = thread_get_priority_for_thread(t);

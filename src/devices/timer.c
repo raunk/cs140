@@ -178,7 +178,6 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  in_timer_interrupt = 1;
 
   if(thread_mlfqs)
   {
@@ -201,9 +200,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
   thread_wakeup_sleeping(ticks);
   
- 
   thread_tick ();
-  in_timer_interrupt = 0;
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

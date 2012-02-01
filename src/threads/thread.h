@@ -123,10 +123,6 @@ struct donation_elem
   int priority;
 };
 
-
-/* If 0 then not in interrupt, if 1 then in interrupt */
-extern int in_timer_interrupt;
-
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */

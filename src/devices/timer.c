@@ -179,24 +179,27 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
 
-  // Update the recent_cpu for the current thread.
-  thread_current ()->recent_cpu = fp_add_integer(thread_current()->recent_cpu, 1);  
-
-  // Every PRIORITY_TICK_UPDATE ticks, we should recompute thread
-  // priorities
-  if(ticks % PRIORITY_TICK_UPDATE == 0)
+  if(thread_mlfqs)
   {
-    thread_compute_priorities();
+    // Update the recent_cpu for the current thread.
+    thread_current ()->recent_cpu = fp_add_integer(thread_current()->recent_cpu, 1);  
+   
+    // Every PRIORITY_TICK_UPDATE ticks, we should recompute thread
+    // priorities
+    if(ticks % PRIORITY_TICK_UPDATE == 0)
+    {
+      thread_compute_priorities();
+    }
+    // Every second, we should recompute the system load average as
+    // well as the recent_cpu used by each thread 
+    if(ticks % TIMER_FREQ == 0)
+    {
+      thread_compute_load_average();
+      thread_compute_recent_cpu();
+    } 
   }
- 
-  // Every second, we should recompute the system load average as
-  // well as the recent_cpu used by each thread 
-  if(ticks % TIMER_FREQ == 0)
-  {
-    thread_compute_load_average();
-    thread_compute_recent_cpu();
-  } 
   thread_wakeup_sleeping(ticks);
+  
   thread_tick ();
 }
 

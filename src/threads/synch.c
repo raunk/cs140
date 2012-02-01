@@ -32,6 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+
+bool cond_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -202,16 +205,21 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
   
   struct thread *cur_thread = thread_current ();
-  
-  // donate priority if someone holds the lock we want
-  enum intr_level old_level = intr_disable ();
-   
-  if (lock->holder != NULL) {
-    cur_thread->lock_waiting_for = lock;
-    cur_thread->t_donating_to = lock->holder;
-    thread_donate_priority(cur_thread);
-  }
-  intr_set_level (old_level);
+
+  // If we are not in the multi-level feedback queue scheduler
+  // then use priority donation
+  if(!thread_mlfqs)
+  {
+    // donate priority if someone holds the lock we want
+    enum intr_level old_level = intr_disable ();
+     
+    if (lock->holder != NULL) {
+      cur_thread->lock_waiting_for = lock;
+      cur_thread->t_donating_to = lock->holder;
+      thread_donate_priority(cur_thread);
+    }
+    intr_set_level (old_level);
+  }  
 
   sema_down (&lock->semaphore);
 //  cur_thread->t_donating_to = NULL;
@@ -342,7 +350,7 @@ cond_wait (struct condition *cond, struct lock *lock)
 }
 
 bool cond_priority_function(const struct list_elem *a, const struct list_elem* b,
-        void* aux)
+        void* aux UNUSED)
 {
     struct semaphore_elem *s1 = list_entry(a, struct semaphore_elem, elem);
     struct semaphore_elem *s2 = list_entry(b, struct semaphore_elem, elem);

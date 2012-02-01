@@ -256,7 +256,6 @@ thread_donate_priority(struct thread* t_donor)
     
     // add donation elem for from to rec_t's recvd_donations
     struct donation_elem* cur_elem = (struct donation_elem*) malloc(sizeof(struct donation_elem));
-    cur_elem->t_donor = t_donor;
     cur_elem->l = t_rec_prev->lock_waiting_for;
     cur_elem->elem.prev = NULL;
     cur_elem->elem.next = NULL;
@@ -592,6 +591,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_yield_if_not_highest_priority(void)
 {
+  enum intr_level old_level = intr_disable ();
   if (list_empty(&ready_list))
     return; 
     
@@ -599,6 +599,7 @@ thread_yield_if_not_highest_priority(void)
   if (thread_get_priority() < thread_get_priority_for_thread(next_ready_t)) {
     thread_yield();
   }
+  intr_set_level (old_level);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */

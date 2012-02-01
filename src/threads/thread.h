@@ -117,7 +117,6 @@ struct thread
   
 struct donation_elem
 {
-  struct thread *t_donor;
   struct lock *l; // Lock that t_donor is waiting on, either directly or indirectly via nested donation.
   struct list_elem elem;
   int priority;

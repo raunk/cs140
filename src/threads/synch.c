@@ -33,7 +33,8 @@
 #include "threads/thread.h"
 
 
-bool cond_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux UNUSED);
+bool cond_priority_function(const struct list_elem *a, 
+                            const struct list_elem* b, void* aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -118,9 +119,12 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   sema->value++;
   if (!list_empty (&sema->waiters)) {
-    // Remove the highest priority thread from the waiting list and and unblock
-    // Note: we use list_min because thread_priority_function is defined backwards
-    struct list_elem *e = list_min (&sema->waiters, thread_priority_function, NULL);
+    /* Remove the highest priority thread from the waiting list 
+       and unblock
+       Note: we use list_min because thread_priority_function 
+       is defined backwards */
+    struct list_elem *e = list_min (&sema->waiters, thread_priority_function, 
+                                    NULL);
     list_remove(e);
     struct thread* t = list_entry (e, struct thread, elem);
     thread_unblock (t);
@@ -206,11 +210,11 @@ lock_acquire (struct lock *lock)
   
   struct thread *cur_thread = thread_current ();
 
-  // If we are not in the multi-level feedback queue scheduler
-  // then use priority donation
+  /* If we are not in the multi-level feedback queue scheduler
+     then use priority donation */
   if(!thread_mlfqs)
   {
-    // donate priority if someone holds the lock we want
+    /* donate priority if someone holds the lock we want */
     enum intr_level old_level = intr_disable ();
      
     if (lock->holder != NULL) {
@@ -222,8 +226,6 @@ lock_acquire (struct lock *lock)
   }  
 
   sema_down (&lock->semaphore);
-//  cur_thread->t_donating_to = NULL;
-//  cur_thread->lock_waiting_for = NULL;
   lock->holder = cur_thread;
 }
 
@@ -245,22 +247,6 @@ lock_try_acquire (struct lock *lock)
   if (success)
     lock->holder = thread_current ();
   return success;
-}
-
-void
-lock_print_waiters (struct lock *lock)
-{
-  struct list_elem * e;
-  if(list_empty(&lock->semaphore.waiters)) {
-    printf ("NO WAITERS");
-    return;
-  }
-  for(e = list_begin(&lock->semaphore.waiters); e != list_end(&lock->semaphore.waiters); e = list_next(e))
-  {
-      struct thread *t = list_entry(e, struct thread, elem);
-      printf("%d (%d) ->", t->tid, thread_get_priority_for_thread (t));
-  }  
-  printf("\n");
 }
 
 /* Releases LOCK, which must be owned by the current thread.
@@ -297,7 +283,8 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-    struct thread *t;                   /* The thread that created the sema. */
+    struct thread *t;                   /* The thread that 
+                                          created the sema. */
   };
 
 /* Initializes condition variable COND.  A condition variable
@@ -349,7 +336,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   lock_acquire (lock);
 }
 
-bool cond_priority_function(const struct list_elem *a, const struct list_elem* b,
+bool cond_priority_function(const struct list_elem *a, 
+        const struct list_elem* b,
         void* aux UNUSED)
 {
     struct semaphore_elem *s1 = list_entry(a, struct semaphore_elem, elem);
@@ -376,9 +364,10 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) {
-    // Remove the highest priority thread from the cond waiting list. Thread is
-    // included in the semaphore_elem struct.
-    struct list_elem *e = list_min (&cond->waiters, cond_priority_function, NULL);
+    // Remove the highest priority thread from the cond waiting list. Thread 
+    // is included in the semaphore_elem struct.
+    struct list_elem *e = list_min (&cond->waiters, cond_priority_function, 
+                                    NULL);
     list_remove(e);
     sema_up(&list_entry(e, struct semaphore_elem, elem)->semaphore);
   }

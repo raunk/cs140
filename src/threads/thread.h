@@ -83,28 +83,33 @@ typedef int tid_t;
 struct thread
   {
     /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem priority_elem;     /* List element for multilevel queues */ 
+    tid_t tid;                      /* Thread identifier. */
+    enum thread_status status;      /* Thread state. */
+    char name[16];                  /* Name (for debugging purposes). */
+    uint8_t *stack;                 /* Saved stack pointer. */
+    int priority;                   /* Priority. */
+    struct list_elem priority_elem; /* List element for multilevel queues */ 
 
-    int nice;                           /* Nice value between -20 and 20 */
-    int recent_cpu;                     /* Measurement of thread's recent cpu usage */
+    int nice;                       /* Nice value between -20 and 20 */
+    int recent_cpu;                 /* Measurement of thread's 
+                                        recent cpu usage */
 
-    struct list_elem allelem;           /* List element for all threads list. */
+    struct list_elem allelem;       /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
+    struct list_elem elem;          /* List element. */
     
-    struct list_elem wakeup_elem;       /* List element for priority queue of threads to wakeup */
-    int64_t wakeup_tick;                /* A time to wake this thread up */
+    /* List element for priority queue of threads to wakeup */
+    struct list_elem wakeup_elem;       
+    int64_t wakeup_tick;            /* A time to wake this thread up */
     
     /* Used to implement priority donations. */
-    struct thread *t_donating_to;
-    struct list recvd_donations;
-    struct lock *lock_waiting_for;
+    struct thread *t_donating_to; /* Pointer to the thread that currently 
+                                     holds a donation from this thread */
+    struct list recvd_donations; /* List of donations received 
+                                    from other threads */
+    struct lock *lock_waiting_for; /* Pointer to the lock that this 
+                                      thread is currently waiting for */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -117,10 +122,10 @@ struct thread
   
 struct donation_elem
 {
-  struct thread *t_donor;
-  struct lock *l; // Lock that t_donor is waiting on, either directly or indirectly via nested donation.
+  struct lock *l; /* Pointer to the lock that, when released, would
+                     cause this donation to expire */
+  int priority; /* Priority value of the donation */
   struct list_elem elem;
-  int priority;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -166,12 +171,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Methods for specifying sleep intervals. */
 void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
+
+/* Methods for priority scheduling and priority donation. */
 void thread_donate_priority(struct thread* donor_t);
 void thread_remove_donations(struct thread* t, struct lock* for_lock);
-bool thread_priority_function(const struct list_elem *a, const struct list_elem* b, void* aux);
-void thread_print_ready_list(void);
+bool thread_priority_function(const struct list_elem *a, 
+                              const struct list_elem* b, void* aux);
 void thread_yield_if_not_highest_priority(void);
 
 /* Re-compute methods for multi-level feedback queue scheduler */

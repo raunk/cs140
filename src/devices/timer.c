@@ -182,7 +182,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if(thread_mlfqs)
   {
     // Update the recent_cpu for the current thread.
-    thread_current ()->recent_cpu = fp_add_integer(thread_current()->recent_cpu, 1);  
+    thread_current ()->recent_cpu = fp_add_integer(
+                          thread_current()->recent_cpu, 1);
    
     // Every PRIORITY_TICK_UPDATE ticks, we should recompute thread
     // priorities

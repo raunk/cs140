@@ -272,7 +272,7 @@ thread_start (void)
 
 bool 
 thread_donation_priority_less_func (const struct list_elem *a, 
-          const struct list_elem *b, void *aux __attribute__((unused)))
+          const struct list_elem *b, void *aux UNUSED)
 {
   struct donation_elem* d1 = list_entry(a, struct donation_elem, elem);
   struct donation_elem* d2 = list_entry(b, struct donation_elem, elem);
@@ -483,7 +483,7 @@ thread_block (void)
 bool 
 thread_wakeup_tick_less_func (const struct list_elem *a, 
                               const struct list_elem *b, 
-                              void *aux __attribute__((unused)))
+                              void *aux UNUSED)
 {
     struct thread* t1 = list_entry(a, struct thread, wakeup_elem);
     struct thread* t2 = list_entry(b, struct thread, wakeup_elem);
@@ -503,7 +503,7 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
 }
 
 bool thread_priority_function(const struct list_elem *a, 
-      const struct list_elem* b, void* aux __attribute__((unused)))
+      const struct list_elem* b, void* aux UNUSED)
 {
     struct thread *t1 = list_entry(a, struct thread, elem);
     struct thread *t2 = list_entry(b, struct thread, elem);

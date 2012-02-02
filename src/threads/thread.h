@@ -102,9 +102,11 @@ struct thread
     int64_t wakeup_tick;                /* A time to wake this thread up */
     
     /* Used to implement priority donations. */
-    struct thread *t_donating_to;
-    struct list recvd_donations;
-    struct lock *lock_waiting_for;
+    struct thread *t_donating_to; /* Pointer to the thread that currently 
+                                     holds a donation from this thread */
+    struct list recvd_donations; /* List of donations received from other threads */
+    struct lock *lock_waiting_for; /* Pointer to the lock that this 
+                                      thread is currently waiting for */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -117,9 +119,10 @@ struct thread
   
 struct donation_elem
 {
-  struct lock *l; // Lock that t_donor is waiting on, either directly or indirectly via nested donation.
+  struct lock *l; /* Pointer to the lock that, when released, would
+                     cause this donation to expire */
+  int priority; /* Priority value of the donation */
   struct list_elem elem;
-  int priority;
 };
 
 /* If false (default), use round-robin scheduler.

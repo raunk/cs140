@@ -161,7 +161,6 @@ thread_initialize_priority_queues(void)
     }
 }
 
-
 /* Insert thread T into the queue_list in bucket for its current priority */
 static void
 thread_add_to_queue(struct thread* t)
@@ -178,7 +177,6 @@ thread_remove_from_queue(struct thread* t)
   list_remove(&t->priority_elem); 
   mlfqs_queue_size--; 
 }
-
 
 /* Compute a priority for the current thread using the formula
     priority = PRI_MAX - (recent_cpu / 4) - (nice * 2) */
@@ -270,6 +268,9 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+/* Compare two donation_elems by the priority donated. This
+   comparator is used to maintain sorted lists of donations
+   in each thread. */
 bool 
 thread_donation_priority_less_func (const struct list_elem *a, 
           const struct list_elem *b, void *aux UNUSED)
@@ -280,6 +281,7 @@ thread_donation_priority_less_func (const struct list_elem *a,
   return d1->priority > d2->priority;
 }
 
+/* Reinsert an element into a list of threads ordered by priority. */
 void
 thread_reinsert_into_list(struct thread *t, struct list *list)
 {
@@ -288,10 +290,14 @@ thread_reinsert_into_list(struct thread *t, struct list *list)
   list_insert_ordered(list, elem, thread_priority_function, NULL);
 }
 
+/* The current thread donates priority to some specified thread
+   t_donor. We must perform nested donation so we that the current
+   thread's priority is also passed to any threads (and their children)
+   on which t_donor is waiting. */
 void
 thread_donate_priority(struct thread* t_donor)
 {  
-  // process nested donations
+  /* process nested donations */
   struct thread *t_rec_prev = t_donor;
   struct thread *t_rec = t_donor->t_donating_to;
   int priority_to_donate = thread_get_priority_for_thread(t_donor);
@@ -299,7 +305,7 @@ thread_donate_priority(struct thread* t_donor)
   while (t_rec != NULL) {
     int t_rec_old_priority = thread_get_priority_for_thread(t_rec);
     
-    // add donation elem for from to rec_t's recvd_donations
+    /* add donation elem for from to rec_t's recvd_donations */
     struct donation_elem* cur_elem = (struct donation_elem*) malloc(
                                       sizeof(struct donation_elem));
     cur_elem->l = t_rec_prev->lock_waiting_for;
@@ -310,9 +316,9 @@ thread_donate_priority(struct thread* t_donor)
     list_insert_ordered (&t_rec->recvd_donations, &cur_elem->elem, 
                         thread_donation_priority_less_func, NULL);
     
-    // If thread priority increases and is in the ready list, 
-    // re-insert it into the ready list
-    // so that the ready list remains sorted
+    /* If thread priority increases and is in the ready list, 
+       re-insert it into the ready list so that the ready list 
+       remains sorted. */
     if (priority_to_donate > t_rec_old_priority 
           && t_rec->status == THREAD_READY) 
     {
@@ -324,6 +330,8 @@ thread_donate_priority(struct thread* t_donor)
   }
 }
 
+/* Remove all the priority donations made to the specified thread
+   for a specific lock. Called when a thread releases a lock. */
 void
 thread_remove_donations(struct thread* t, struct lock* for_lock)
 {
@@ -342,13 +350,13 @@ thread_remove_donations(struct thread* t, struct lock* for_lock)
   }
 }
 
-/* This is called by the timer interrupt handler at each timer 
-   tick, and wakes up threads that may have been sleeping that
+/* Called by the timer interrupt handler at each timer 
+   tick.  It wakes up threads that may have been sleeping that
    were scheduled to wake up at this tick. We check the ordered
    list WAKEUP_LIST, and since it is ordered, we only need to 
    consider elements at the front of the list. Since it is possible
-   multiple threads need to wake up at the same tick, we use a 
-   while loop. If we determine this thread should be woken up,
+   multiple threads need to wake up at the same tick, we loop. 
+   If we determine this thread should be woken up,
    we remove it from the queue WAKEUP_LIST */
 void
 thread_wakeup_sleeping (int64_t ticks)
@@ -480,6 +488,7 @@ thread_block (void)
   schedule ();
 }
 
+/* Comparator to compare two threads on their time to wake. */
 bool 
 thread_wakeup_tick_less_func (const struct list_elem *a, 
                               const struct list_elem *b, 
@@ -490,8 +499,8 @@ thread_wakeup_tick_less_func (const struct list_elem *a,
     return t1->wakeup_tick < t2->wakeup_tick;
 }
 
-/* 
-*/
+/* Add the current thread to the wakeup list for wakeup time
+   specified by wakeup_tick */
 void
 thread_add_to_wakeup_list (int64_t wakeup_tick) 
 {
@@ -502,6 +511,8 @@ thread_add_to_wakeup_list (int64_t wakeup_tick)
                           thread_wakeup_tick_less_func, NULL);
 }
 
+/* Comparator to compare two threads on their current effective
+   priority.  */
 bool thread_priority_function(const struct list_elem *a, 
       const struct list_elem* b, void* aux UNUSED)
 {
@@ -544,8 +555,8 @@ thread_unblock (struct thread *t)
 
   t->status = THREAD_READY;
   
-  // If the current thread priority is less than this threads priority
-  // yield immediately
+  /* If the current thread priority is less than this thread's priority,
+     yield immediately */
   if(thread_current() != idle_thread && !intr_context() )
   {
     int cur_priority = thread_get_priority();
@@ -629,11 +640,10 @@ thread_yield (void)
     if(thread_mlfqs)
     {
       thread_add_to_queue(cur);
-    }else{
+    } else {
       list_insert_ordered(&ready_list, &cur->elem, thread_priority_function,
                           NULL);
     }
-
   }
   cur->status = THREAD_READY;
   schedule ();
@@ -657,6 +667,8 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* Yield the current thread if some other thread is ready 
+   that has a higher priority. */
 void
 thread_yield_if_not_highest_priority(void)
 {
@@ -683,7 +695,10 @@ thread_set_priority (int new_priority)
   thread_yield_if_not_highest_priority();
 }
 
-/* Returns the priority for T, the thread passed as a parameter */
+/* Returns the priority for T, the thread passed as a parameter 
+   A thread's priority is the maximum of any donations and its
+   current set priority.
+*/
 int
 thread_get_priority_for_thread(struct thread* t)
 {

@@ -137,7 +137,7 @@ thread_init (void)
 
   if(thread_mlfqs)
   {
-    printf("MLFQS Enabled\n");
+    //printf("MLFQS Enabled\n");
     thread_initialize_priority_queues();
     mlfqs_queue_size = 0; 
   }

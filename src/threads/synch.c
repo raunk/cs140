@@ -119,10 +119,10 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   sema->value++;
   if (!list_empty (&sema->waiters)) {
-    // Remove the highest priority thread from the waiting list 
-    // and unblock
-    // Note: we use list_min because thread_priority_function 
-    // is defined backwards
+    /* Remove the highest priority thread from the waiting list 
+       and unblock
+       Note: we use list_min because thread_priority_function 
+       is defined backwards */
     struct list_elem *e = list_min (&sema->waiters, thread_priority_function, 
                                     NULL);
     list_remove(e);
@@ -210,11 +210,11 @@ lock_acquire (struct lock *lock)
   
   struct thread *cur_thread = thread_current ();
 
-  // If we are not in the multi-level feedback queue scheduler
-  // then use priority donation
+  /* If we are not in the multi-level feedback queue scheduler
+     then use priority donation */
   if(!thread_mlfqs)
   {
-    // donate priority if someone holds the lock we want
+    /* donate priority if someone holds the lock we want */
     enum intr_level old_level = intr_disable ();
      
     if (lock->holder != NULL) {
@@ -226,8 +226,6 @@ lock_acquire (struct lock *lock)
   }  
 
   sema_down (&lock->semaphore);
-//  cur_thread->t_donating_to = NULL;
-//  cur_thread->lock_waiting_for = NULL;
   lock->holder = cur_thread;
 }
 

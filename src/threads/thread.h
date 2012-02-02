@@ -171,13 +171,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Methods for specifying sleep intervals. */
 void thread_add_to_wakeup_list (int64_t wakeup_tick);
 void thread_wakeup_sleeping (int64_t ticks);
+
+/* Methods for priority scheduling and priority donation. */
 void thread_donate_priority(struct thread* donor_t);
 void thread_remove_donations(struct thread* t, struct lock* for_lock);
 bool thread_priority_function(const struct list_elem *a, 
                               const struct list_elem* b, void* aux);
-void thread_print_ready_list(void);
 void thread_yield_if_not_highest_priority(void);
 
 /* Re-compute methods for multi-level feedback queue scheduler */

@@ -80,17 +80,24 @@ unacceptable since timer_interrupt needs to execute very quickly.
 >> member, global or static variable, `typedef', or enumeration.  Identify the
 >> purpose of each in 25 words or less.
 
-New members for struct ‘thread’: struct thread *t_donating_to; /* Pointer to
-the thread that currently holds a donation from this thread */ struct list
-recvd_donations; /* List of donations received from other threads */ struct
-lock *lock_waiting_for; /* Pointer to the lock that this thread is currently
-waiting for */
+New members for struct ‘thread’:
+struct thread *t_donating_to;  /* Pointer to the thread that currently holds
+ 								  a donation from this thread */ 
+struct list recvd_donations;   /* List of donations received from other 
+								  threads */ 
+struct lock *lock_waiting_for; /* Pointer to the lock that this thread is 
+								  currently waiting for */
 
 
-Declaration of new struct ‘donation_elem’: struct donation_elem { struct lock
-*l; /* Pointer to the lock that, when released, would cause this donation to
-expire */ int priority; /* Priority value of the donation */ struct list_elem
-elem; };
+Declaration of new struct ‘donation_elem’: 
+
+struct donation_elem 
+{ 
+	struct lock *l; /* Pointer to the lock that, when released, 
+						would cause this donation to expire */ 
+	int priority;   /* Priority value of the donation */ 
+	struct list_elem elem; 
+};
 
 
 
@@ -102,6 +109,8 @@ priority value of the donation.  The lock is tracked in this element so that
 when a thread releases a lock, all of the donated priorities for that lock can
 be deleted.  The priority for a thread is then computed as the maximum of its
 received donations and its original priority.
+
+Please see the threads.png file.
 
 ---- ALGORITHMS ----
 
@@ -197,14 +206,14 @@ by the thread releasing the lock, in lock_release().
 
 In struct thread:
 
-    struct list_elem priority_elem;     
 /* List element for multilevel queues */
+struct list_elem priority_elem;  
 
-      int nice;                           
 /* Nice value between -20 and 20 */
-    
-int recent_cpu;                     
+int nice; 
+
 /* Measurement of thread's recent cpu usage */
+int recent_cpu;                     
 
 End additions to struct thread
 
@@ -213,9 +222,10 @@ End additions to struct thread
 static int load_avg;
 
 /* Array of PRI_MAX + 1 queues for the multi-level feedback
-      queue scheduler */ static struct list queue_list[PRI_MAX+1];
+   queue scheduler */ 
+static struct list queue_list[PRI_MAX+1];
 
-/* This represents the total number of ready threads, or the total size all all
+/* This represents the total number of ready threads, or the total size of all
  * threads in the queue_list */
 static int mlfqs_queue_size;
 

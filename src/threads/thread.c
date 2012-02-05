@@ -108,7 +108,6 @@ void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
 void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
 
 static void thread_add_to_queue(struct thread* t);
-static void thread_remove_from_queue(struct thread* t);
 
 static struct thread * thread_pop_max_priority_list(void);
 
@@ -137,7 +136,6 @@ thread_init (void)
 
   if(thread_mlfqs)
   {
-    printf("MLFQS Enabled\n");
     thread_initialize_priority_queues();
     mlfqs_queue_size = 0; 
   }
@@ -170,13 +168,6 @@ thread_add_to_queue(struct thread* t)
   mlfqs_queue_size++; 
 }
 
-/* Remove thread T from its list in queue_list */
-static void
-thread_remove_from_queue(struct thread* t)
-{
-  list_remove(&t->priority_elem); 
-  mlfqs_queue_size--; 
-}
 
 /* Compute a priority for the current thread using the formula
     priority = PRI_MAX - (recent_cpu / 4) - (nice * 2) */

@@ -6,11 +6,11 @@
 #include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
-static void check_user_pointer (void *ptr);
-static int write (int fd, const void *buffer, unsigned size);
+static void syscall_check_user_pointer (void *ptr);
+static int syscall_write(void* esp);
 
 void
-check_user_pointer (void *ptr)
+syscall_check_user_pointer (void *ptr)
 {
   // check that it is within user memory
   if(is_user_vaddr(ptr)) {
@@ -26,6 +26,8 @@ check_user_pointer (void *ptr)
   // TODO: is this all we need to call?
   process_exit();
 }
+
+
 
 void
 syscall_init (void) 
@@ -50,12 +52,10 @@ syscall_handler (struct intr_frame *f)
       // TODO: I'm not sure if we can assume that the stack is setup
       //       correctly here???
       
-      void *fd = f->esp + sizeof(char*);
-      void *buf = f->esp + 2 * sizeof(char*);
-      void *size = f->esp + 3 * sizeof(char*);
       /* note we need to derefence these before passing since above
          pointers are still in terms of the stack pointer */
-      write(*(int*)fd, *(int*)buf, *(unsigned*)size);
+      int bytes_written = syscall_write(f->esp);
+      f->eax = bytes_written;
       break;
       /*
     case SYS_HALT: case SYS_EXEC: case: SYS_CREATE:
@@ -80,18 +80,28 @@ syscall_handler (struct intr_frame *f)
    FD 1 writes to console.
     */
 static int
-write (int fd, const void *buffer, unsigned size) 
+syscall_write(void* esp)
 {
+  
+  printf("Syscall WRITE\n");
+ 
+  int fd = *(int*)(esp + sizeof(char*));
+  char* buffer = *(char**)(esp + 2 * sizeof(char*));
+  unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
+  
   // TODO: make sure this check actually is doing something....
-  check_user_pointer(buffer);
-  printf("FD: %d\n", fd);
-  printf("SIZE: %d\n", size);
-  
-  // TODO make this work for FD other than console
-  if(fd == 1) { 
-    putbuf(buffer, size);
-    return size;
+  syscall_check_user_pointer(buffer);
+
+  printf("FD %d\n", fd);
+  printf("Len %u\n", length); 
+
+
+  if(fd == STDOUT_FILENO)
+  {
+    printf("Write this console using putbuf\n");
+    putbuf(buffer, length); 
+    return length;
   }
-  
-  return 0;
+
+  printf("Done\n");
 }

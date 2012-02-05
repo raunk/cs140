@@ -3,3 +3,6 @@ cscope.out
 TAGS
 tags
 .*.swp
+*.o
+*.a
+*.dsk

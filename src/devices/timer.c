@@ -195,8 +195,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
        well as the recent_cpu used by each thread */
     if(ticks % TIMER_FREQ == 0)
     {
-      thread_compute_load_average();
       thread_compute_recent_cpu();
+      thread_compute_load_average();
     } 
   }
   thread_wakeup_sleeping(ticks);

@@ -41,6 +41,9 @@ syscall_handler (struct intr_frame *f)
   switch(sys_call_number) {
     case SYS_EXIT:
       printf("Exit system call\n");
+      // TODO: I have no idea if this is right.
+      void *status = f->esp + sizeof(char*);
+      f->eax = *(int*)status;
       break;
     case SYS_WRITE: 
       printf("Write system call\n");
@@ -50,6 +53,8 @@ syscall_handler (struct intr_frame *f)
       void *fd = f->esp + sizeof(char*);
       void *buf = f->esp + 2 * sizeof(char*);
       void *size = f->esp + 3 * sizeof(char*);
+      /* note we need to derefence these before passing since above
+         pointers are still in terms of the stack pointer */
       write(*(int*)fd, *(int*)buf, *(unsigned*)size);
       break;
       /*

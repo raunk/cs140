@@ -25,7 +25,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
     syscall_write(f->esp);
   }
-  thread_exit ();
+//  thread_exit ();
 }
 
 
@@ -41,7 +41,7 @@ syscall_write(void* esp)
   printf("+12 %p\n", esp + 12);
  
   int fd = *(int*)(esp + 4);
-  void* buffer = (void*)(esp + 8);
+  char* buffer = *(char**)(esp + 8);
   unsigned length = *(unsigned*)(esp + 12);
 
   printf("FD %d\n", fd);
@@ -53,5 +53,7 @@ syscall_write(void* esp)
     printf("Write this console using putbuf\n");
     putbuf(buffer, length); 
   }
+
+  printf("Done\n");
   
 }

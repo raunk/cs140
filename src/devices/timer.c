@@ -7,7 +7,6 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include "threads/fixed-point.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -17,9 +16,6 @@
 #if TIMER_FREQ > 1000
 #error TIMER_FREQ <= 1000 recommended
 #endif
-
-/* Frequency to update the thread priorities */
-#define PRIORITY_TICK_UPDATE 4
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -96,11 +92,8 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  
-  enum intr_level old_level = intr_disable ();
-  thread_add_to_wakeup_list(start + ticks);
-  thread_block();
-  intr_set_level (old_level);
+  while (timer_elapsed (start) < ticks) 
+    thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -178,29 +171,6 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-
-  if(thread_mlfqs)
-  {
-    /* Update the recent_cpu for the current thread. */
-    thread_current ()->recent_cpu = fp_add_integer(
-                          thread_current()->recent_cpu, 1);
-   
-    /* Every PRIORITY_TICK_UPDATE ticks, we should recompute thread
-       priorities */
-    if(ticks % PRIORITY_TICK_UPDATE == 0)
-    {
-      thread_compute_priorities();
-    }
-    /* Every second, we should recompute the system load average as
-       well as the recent_cpu used by each thread */
-    if(ticks % TIMER_FREQ == 0)
-    {
-      thread_compute_recent_cpu();
-      thread_compute_load_average();
-    } 
-  }
-  thread_wakeup_sleeping(ticks);
-  
   thread_tick ();
 }
 

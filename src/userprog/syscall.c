@@ -43,15 +43,19 @@ syscall_handler (struct intr_frame *f)
   switch(sys_call_number) {
     int bytes_written;
     void* status;
+    char* cmd;
+    int pid;
 
     case SYS_EXIT:
       status = f->esp + sizeof(char*);
       f->eax = *(int*)status;
-//      printf("Status %d\n", f->eax);
+      printf("STATUS IS %d", f->eax);
+      
       struct thread* cur = thread_current();
-      lock_acquire(&cur->status_lock);
-      cond_signal(&cur->is_dying, &cur->status_lock);
-      lock_release(&cur->status_lock);
+      cur->exit_status = *(int*)status;
+      
+      sema_up(&cur->is_dying);
+      
       thread_exit();
       break;
     case SYS_WRITE: 
@@ -64,6 +68,13 @@ syscall_handler (struct intr_frame *f)
     case SYS_HALT:
       printf("Sys halt called\n");
       break; 
+    case SYS_EXEC:
+      printf("Sys exec called\n");
+      // TODO check this pointer
+      /*cmd = *(char**)(f->esp + sizeof(char*));
+      pid = process_execute(cmd); 
+      printf("PID RETURNED: %d\n", pid); */
+      break;
       /*
     case SYS_HALT: case SYS_EXEC: case: SYS_CREATE:
     case SYS_REMOVE: case SYS_OPEN: case SYS_FILESIZE:

@@ -53,14 +53,16 @@ setup_arguments(void *file_name, void *esp)
   printf("FILENAME: %s\n", file_name);
   
   esp -= (strlen(file_name) + 1);   // inc stack pointer for string
-  unsigned *str_loc = (unsigned*)esp;
+  char *str_loc = (char*)esp;
   strlcpy (esp, file_name, strlen(file_name) + 1);
   
-  printf("BEFORE ARGS: %x\n", esp);
+  printf("BEFORE ARGS: %s\n", str_loc);
+  printf("AFTER ARGS: %p\n", esp);
   
   esp -= ((unsigned)esp % sizeof(char*));     // word align TODO not sure about this cast...
   
-  printf("AFTER ARGS: %x\n", esp);
+  printf("AFTER WORD ALIGN: %p\n", esp);
+  esp -= sizeof(char*);
   
   *(unsigned*)esp = 0;                      // last val of argv is always NULL
   esp -= sizeof(char*);
@@ -68,7 +70,7 @@ setup_arguments(void *file_name, void *esp)
   *(unsigned*)esp = str_loc;                   // argv[i] needs to be pointer to actual string
   printf("ARGV[0]: %p\n", esp);
   printf("PTR: %p\n", str_loc);
-  printf("ARG: %s\n", (unsigned*)str_loc);
+  printf("ARG: %s\n", str_loc);
   void *argv_ptr = esp;
   
   esp -= sizeof(unsigned*);

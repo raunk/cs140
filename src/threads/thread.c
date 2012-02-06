@@ -159,6 +159,23 @@ thread_initialize_priority_queues(void)
     }
 }
 
+/* Get the thread given by the tid TID */
+struct thread *
+thread_get_by_tid(tid_t tid)
+{
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if(t->tid == tid)
+        return t;
+    }
+
+  return NULL;
+}
+
+
 /* Insert thread T into the queue_list in bucket for its current priority */
 static void
 thread_add_to_queue(struct thread* t)

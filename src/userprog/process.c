@@ -48,29 +48,64 @@ process_execute (const char *file_name)
 static void*
 setup_arguments(void *file_name, void *esp)
 { 
-  esp -= (strlen(file_name) + 1);   // inc stack pointer for string
-  char *str_loc = (char*)esp;
-  strlcpy (esp, file_name, strlen(file_name) + 1);
+  int num_tokens = 0;
+
+  char* str;
+  char* saveptr;
+  char* arg;
+  for (str = file_name; ; str = NULL) {
+    arg = strtok_r(str, " ", &saveptr);
+    
+    if (arg == NULL)
+      break;
+    
+    num_tokens++;
+    esp -= ((unsigned)strlen(arg) + 1);
+  }
   
-  esp -= ((unsigned)esp % sizeof(char*));     // word align TODO not sure about this cast...
+  void* str_loc = esp;
   
+  // read tokens from the front of file_name
+  // up to each null delimeter
+  char* file_tokenizer = file_name;
+  while(esp < PHYS_BASE) {
+    strlcpy (esp, file_tokenizer, strlen(file_tokenizer) + 1);
+    esp += ((unsigned)strlen(file_tokenizer) + 1);
+    file_tokenizer += strlen(file_tokenizer) + 1;
+  }
+  
+  esp = str_loc;
+
+  // word align TODO not sure about this cast...
+  esp -= ((unsigned)esp % sizeof(char*));
+  
+  // give enough space for ptrs (+1 for null argv[argc] arg)
+  esp -= (num_tokens + 1) * sizeof(char*);
+  
+  // argv[i] needs to be pointer to actual string
+  // read from str_loc up to null
+  while(str_loc < PHYS_BASE) {
+    *(unsigned*)esp = str_loc;
+    esp += sizeof(unsigned*);
+    str_loc += strlen(str_loc) + 1;
+  }
+  
+  // last val of argv is always NULL
+  *(unsigned*)esp = 0;
+  
+  // re place esp
+  esp -= (num_tokens + 1) * sizeof(char*);
+  
+  // argv
+  *(unsigned*)esp = (esp + sizeof(char*));
+
+  // argc
   esp -= sizeof(char*);
+  *(unsigned*)esp = num_tokens;
   
-  *(unsigned*)esp = 0;                      // last val of argv is always NULL
+  // fake return addr
   esp -= sizeof(char*);
-  
-  *(unsigned*)esp = str_loc;                   // argv[i] needs to be pointer to actual string
-  void *argv_ptr = esp;
-  
-  esp -= sizeof(unsigned*);
-  *(unsigned*)esp = argv_ptr;
-  esp -= sizeof(char*);
-  
-  *(unsigned*)esp = 1;                         // argc
-  esp -= sizeof(char*);
-  *(unsigned*)esp = 0;                         // fake return addr
-  
-  
+  *(unsigned*)esp = 0;                         
   
   return esp;
 }
@@ -80,7 +115,10 @@ setup_arguments(void *file_name, void *esp)
 static void
 start_process (void *file_name_)
 {
-  char *file_name = file_name_;
+  // file_name will be first token from passed in file name
+  char *saveptr;
+  int file_name_len = strlen(file_name_);
+  char *file_name = strtok_r(file_name_, " ", &saveptr);
   struct intr_frame if_;
   bool success;
 
@@ -90,11 +128,20 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  
+  if(!success) {
+    // TODO: handle this error
+    printf("FAILED TO LOAD FILE!!!!\n");
+  }
   /* Add passed in arguments to the stack */
-  // TODO make this work for multiple arguments
+  if(strlen(file_name_) < file_name_len) {
+    // string was shortened by strtok_r writing a null to delimiter location
+    ((char*)file_name_)[strlen(file_name_)] = ' ';
+  }
   if_.esp = setup_arguments(file_name_, if_.esp);
-
+  // set file_name first space back to null so that we have the right filename
+  file_name = strtok_r(file_name_, " ", &saveptr);
+  printf("FILE NAME IS: %s\n", file_name);
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 

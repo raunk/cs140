@@ -140,6 +140,9 @@ process_wait (tid_t child_tid)
 {
   printf("Called process wait\n");
   struct thread* thread = thread_get_by_tid(child_tid);
+
+  printf("Waiting for thread #%d %p\n", thread->tid, thread);
+  
  
   thread->waited_on_by = thread_current ()->tid;
   lock_acquire(&thread->status_lock);
@@ -147,7 +150,8 @@ process_wait (tid_t child_tid)
   cond_wait(&thread->is_dying, &thread->status_lock); 
   lock_release(&thread->status_lock);
 
-  return thread->exit_status; 
+  return 0;
+  //return thread->exit_status; 
 }
 
 /* Free the current process's resources. */

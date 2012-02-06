@@ -47,7 +47,11 @@ syscall_handler (struct intr_frame *f)
     case SYS_EXIT:
       status = f->esp + sizeof(char*);
       f->eax = *(int*)status;
-      printf("Status %d\n", f->eax);
+//      printf("Status %d\n", f->eax);
+      struct thread* cur = thread_current();
+      lock_acquire(&cur->status_lock);
+      cond_signal(&cur->is_dying, &cur->status_lock);
+      lock_release(&cur->status_lock);
       thread_exit();
       break;
     case SYS_WRITE: 

@@ -47,6 +47,45 @@ process_execute (const char *file_name)
   return tid;
 }
 
+static void*
+setup_arguments(void *file_name, void *esp)
+{
+  printf("FILENAME: %s\n", file_name);
+  
+  esp -= (strlen(file_name) + 1);   // inc stack pointer for string
+  unsigned *str_loc = (unsigned*)esp;
+  strlcpy (esp, file_name, strlen(file_name) + 1);
+  
+  printf("BEFORE ARGS: %x\n", esp);
+  
+  esp -= ((unsigned)esp % sizeof(char*));     // word align TODO not sure about this cast...
+  
+  printf("AFTER ARGS: %x\n", esp);
+  
+  *(unsigned*)esp = 0;                      // last val of argv is always NULL
+  esp -= sizeof(char*);
+  
+  *(unsigned*)esp = str_loc;                   // argv[i] needs to be pointer to actual string
+  printf("ARGV[0]: %p\n", esp);
+  printf("PTR: %p\n", str_loc);
+  printf("ARG: %s\n", (unsigned*)str_loc);
+  void *argv_ptr = esp;
+  
+  esp -= sizeof(unsigned*);
+  *(unsigned*)esp = argv_ptr;
+  printf("ARGV: %x\n", esp);
+  printf("FILE: %s\n", ((char**)argv_ptr)[0]);
+  esp -= sizeof(char*);
+  
+  *(unsigned*)esp = 1;                         // argc
+  esp -= sizeof(char*);
+  *(unsigned*)esp = 0;                         // fake return addr
+  
+  
+  
+  return esp;
+}
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -63,6 +102,12 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+  
+  /* Add passed in arguments to the stack */
+  // TODO make this work for multiple arguments
+  printf("Setting up arguments on stack");
+  printf("%x\n", if_.esp);
+  if_.esp = setup_arguments(file_name_, if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -441,7 +486,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }

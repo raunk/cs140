@@ -27,8 +27,6 @@ syscall_check_user_pointer (void *ptr)
   process_exit();
 }
 
-
-
 void
 syscall_init (void) 
 {
@@ -51,16 +49,16 @@ syscall_handler (struct intr_frame *f)
       printf("Write system call\n");
       // TODO: I'm not sure if we can assume that the stack is setup
       //       correctly here???
-      
-      /* note we need to derefence these before passing since above
-         pointers are still in terms of the stack pointer */
       int bytes_written = syscall_write(f->esp);
       f->eax = bytes_written;
+      break;
+    case SYS_READ:
+      printf("Read system call\n");
       break;
       /*
     case SYS_HALT: case SYS_EXEC: case: SYS_CREATE:
     case SYS_REMOVE: case SYS_OPEN: case SYS_FILESIZE:
-    case SYS_READ: case SYS_SEEK: case SYS_READ:
+    case SYS_READ: case SYS_SEEK: 
     case SYS_WAIT: case SYS_TELL: case SYS_SEEK:
     case SYS_TELL: case SYS_CLOSE:
       // TODO

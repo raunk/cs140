@@ -472,6 +472,11 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
   
+  /* Setup thread variables for signaling dying condition */
+  cond_init(&t->is_dying);
+  lock_init(&t->status_lock);
+  t->waited_on_by = -1; 
+  
   intr_set_level (old_level);
 
   /* Add to run queue. */

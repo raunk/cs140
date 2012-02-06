@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -111,6 +112,9 @@ struct thread
     struct lock *lock_waiting_for; /* Pointer to the lock that this 
                                       thread is currently waiting for */
 
+    struct condition is_dying;  /* Condition to signal when thread is dying */
+    struct lock status_lock; /* Lock to be acquired when checking thread status */
+    int waited_on_by;   /* pid of process waiting on this thread */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

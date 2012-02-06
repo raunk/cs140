@@ -115,6 +115,8 @@ struct thread
     struct condition is_dying;  /* Condition to signal when thread is dying */
     struct lock status_lock; /* Lock to be acquired when checking thread status */
     int waited_on_by;   /* pid of process waiting on this thread */
+    int exit_status;    /* Exit status for this thread */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

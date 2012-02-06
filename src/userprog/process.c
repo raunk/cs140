@@ -38,6 +38,10 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  // read first token off file_name
+  char* saveptr;
+  char* f = strtok_r(file_name, " ", &saveptr);
+  
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -140,7 +144,6 @@ start_process (void *file_name_)
   if_.esp = setup_arguments(file_name_, if_.esp);
   // set file_name first space back to null so that we have the right filename
   file_name = strtok_r(file_name_, " ", &saveptr);
-  printf("FILE NAME IS: %s\n", file_name);
   
   /* If load failed, quit. */
   palloc_free_page (file_name);

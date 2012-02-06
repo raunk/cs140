@@ -24,7 +24,8 @@ syscall_check_user_pointer (void *ptr)
   
   // pointer is invalid if we get here
   // TODO: is this all we need to call?
-  process_exit();
+  // process_exit();
+  thread_exit();
 }
 
 void
@@ -39,22 +40,25 @@ syscall_handler (struct intr_frame *f)
   // read sys call number from location pointed to by stack pointer
   int sys_call_number = *((int*)f->esp);
   switch(sys_call_number) {
+    int bytes_written;
+    void* status;
+
     case SYS_EXIT:
-      printf("Exit system call\n");
-      // TODO: I have no idea if this is right.
-      void *status = f->esp + sizeof(char*);
+      status = f->esp + sizeof(char*);
       f->eax = *(int*)status;
+      printf("Status %d\n", f->eax);
+      thread_exit();
       break;
     case SYS_WRITE: 
-      printf("Write system call\n");
-      // TODO: I'm not sure if we can assume that the stack is setup
-      //       correctly here???
-      int bytes_written = syscall_write(f->esp);
+      bytes_written = syscall_write(f->esp);
       f->eax = bytes_written;
       break;
     case SYS_READ:
       printf("Read system call\n");
       break;
+    case SYS_HALT:
+      printf("Sys halt called\n");
+      break; 
       /*
     case SYS_HALT: case SYS_EXEC: case: SYS_CREATE:
     case SYS_REMOVE: case SYS_OPEN: case SYS_FILESIZE:
@@ -80,26 +84,16 @@ syscall_handler (struct intr_frame *f)
 static int
 syscall_write(void* esp)
 {
-  
-  printf("Syscall WRITE\n");
- 
   int fd = *(int*)(esp + sizeof(char*));
   char* buffer = *(char**)(esp + 2 * sizeof(char*));
   unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
   
-  // TODO: make sure this check actually is doing something....
   syscall_check_user_pointer(buffer);
-
-  printf("FD %d\n", fd);
-  printf("Len %u\n", length); 
-
-
   if(fd == STDOUT_FILENO)
   {
-    printf("Write this console using putbuf\n");
     putbuf(buffer, length); 
     return length;
   }
 
-  printf("Done\n");
+  return 0;
 }

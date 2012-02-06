@@ -876,8 +876,16 @@ init_thread (struct thread *t, const char *name, int priority)
   t->lock_waiting_for = NULL;
   
   /* Setup thread variables for signaling dying condition */
+  list_init(&t->child_list);
   cond_init(&t->is_dying);
   lock_init(&t->status_lock);
+  
+  // use running_thread since current thread might not have status
+  // set to running yet
+  struct thread* cur = running_thread ();
+  if(is_thread(cur))
+    list_push_back(&cur->child_list, &t->child_elem);
+  
   t->waited_on_by = -1; 
   
   list_push_back (&all_list, &t->allelem);
@@ -962,7 +970,15 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      //palloc_free_page (prev);
+      // only free thread's children
+      struct list_elem* elem; 
+      struct thread* child;
+      while(!list_empty(&prev->child_list)) {
+        elem = list_pop_front(&prev->child_list);
+        child = list_entry(elem, struct thread, child_elem);
+        palloc_free_page(child);
+      }
     }
 }
 

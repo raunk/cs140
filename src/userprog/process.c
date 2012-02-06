@@ -30,8 +30,6 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-  
-  printf("FILENAME PASSED: %s\n", file_name);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -49,34 +47,23 @@ process_execute (const char *file_name)
 
 static void*
 setup_arguments(void *file_name, void *esp)
-{
-  printf("FILENAME: %s\n", file_name);
-  
+{ 
   esp -= (strlen(file_name) + 1);   // inc stack pointer for string
   char *str_loc = (char*)esp;
   strlcpy (esp, file_name, strlen(file_name) + 1);
   
-  printf("BEFORE ARGS: %s\n", str_loc);
-  printf("AFTER ARGS: %p\n", esp);
-  
   esp -= ((unsigned)esp % sizeof(char*));     // word align TODO not sure about this cast...
   
-  printf("AFTER WORD ALIGN: %p\n", esp);
   esp -= sizeof(char*);
   
   *(unsigned*)esp = 0;                      // last val of argv is always NULL
   esp -= sizeof(char*);
   
   *(unsigned*)esp = str_loc;                   // argv[i] needs to be pointer to actual string
-  printf("ARGV[0]: %p\n", esp);
-  printf("PTR: %p\n", str_loc);
-  printf("ARG: %s\n", str_loc);
   void *argv_ptr = esp;
   
   esp -= sizeof(unsigned*);
   *(unsigned*)esp = argv_ptr;
-  printf("ARGV: %x\n", esp);
-  printf("FILE: %s\n", ((char**)argv_ptr)[0]);
   esp -= sizeof(char*);
   
   *(unsigned*)esp = 1;                         // argc
@@ -93,7 +80,6 @@ setup_arguments(void *file_name, void *esp)
 static void
 start_process (void *file_name_)
 {
-  printf("STARTING PROCESS: %s\n", file_name_);
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -107,8 +93,6 @@ start_process (void *file_name_)
   
   /* Add passed in arguments to the stack */
   // TODO make this work for multiple arguments
-  printf("Setting up arguments on stack");
-  printf("%x\n", if_.esp);
   if_.esp = setup_arguments(file_name_, if_.esp);
 
   /* If load failed, quit. */
@@ -138,20 +122,15 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  printf("Called process wait\n");
   struct thread* thread = thread_get_by_tid(child_tid);
-
-  printf("Waiting for thread #%d %p\n", thread->tid, thread);
   
- 
-  thread->waited_on_by = thread_current ()->tid;
   lock_acquire(&thread->status_lock);
-  
+  thread->waited_on_by = thread_current ()->tid;
   cond_wait(&thread->is_dying, &thread->status_lock); 
+  int ret = thread->exit_status;
   lock_release(&thread->status_lock);
 
-  return 0;
-  //return thread->exit_status; 
+  return ret; 
 }
 
 /* Free the current process's resources. */

@@ -40,23 +40,39 @@ syscall_handler (struct intr_frame *f)
 {
   // read sys call number from location pointed to by stack pointer
   int sys_call_number = *((int*)f->esp);
+  if(sys_call_number == SYS_EXIT) {
+    
+    struct thread* cur = thread_current();
+    
+    void* status = f->esp + sizeof(char*);
+    f->eax = *(int*)status;
+    cur->exit_status = *(int*)status;
+    
+    lock_acquire(&cur->status_lock);
+    cond_signal(&cur->is_dying, &cur->status_lock);
+    lock_release(&cur->status_lock);
+    printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
+    
+    thread_exit();
+    
+  } else if(sys_call_number == SYS_WRITE) {
+    int bytes_written = syscall_write(f->esp);
+    f->eax = bytes_written;
+  } else if(sys_call_number == SYS_READ) {
+    
+  }
+  /*
   switch(sys_call_number) {
     int bytes_written;
     void* status;
 
     case SYS_EXIT:
-      status = f->esp + sizeof(char*);
-      f->eax = *(int*)status;
-//      printf("Status %d\n", f->eax);
-      struct thread* cur = thread_current();
-      lock_acquire(&cur->status_lock);
-      cond_signal(&cur->is_dying, &cur->status_lock);
-      lock_release(&cur->status_lock);
-      thread_exit();
+      
+      
+      
       break;
     case SYS_WRITE: 
-      bytes_written = syscall_write(f->esp);
-      f->eax = bytes_written;
+      
       break;
     case SYS_READ:
       printf("Read system call\n");
@@ -64,7 +80,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_HALT:
       printf("Sys halt called\n");
       break; 
-      /*
+      
     case SYS_HALT: case SYS_EXEC: case: SYS_CREATE:
     case SYS_REMOVE: case SYS_OPEN: case SYS_FILESIZE:
     case SYS_READ: case SYS_SEEK: 
@@ -72,8 +88,9 @@ syscall_handler (struct intr_frame *f)
     case SYS_TELL: case SYS_CLOSE:
       // TODO
       break;
-      */
+      
   }
+  */
   //thread_exit ();
 }
 

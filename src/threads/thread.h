@@ -114,6 +114,9 @@ struct thread
 
     struct condition is_dying;  /* Condition to signal when thread is dying */
     struct lock status_lock; /* Lock to be acquired when checking thread status */
+    struct list_elem child_elem;
+    struct list child_list;
+    
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
 

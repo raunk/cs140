@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
+#include "threads/init.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
@@ -56,6 +57,8 @@ syscall_handler (struct intr_frame *f)
     f->eax = bytes_written;
   } else if(sys_call_number == SYS_READ) {
     
+  } else if(sys_call_number == SYS_HALT) {
+    shutdown_power_off();
   }
   /*
   switch(sys_call_number) {

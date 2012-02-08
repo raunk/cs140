@@ -704,6 +704,21 @@ thread_set_priority (int new_priority)
   thread_yield_if_not_highest_priority();
 }
 
+bool
+thread_is_in_child_list(struct thread* t)
+{
+  struct thread* cur = thread_current ();
+  struct list_elem *e;
+  for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list);
+       e = list_next (e))
+    {
+      struct thread *thr = list_entry (e, struct thread, child_elem);
+      if(thr->tid == t->tid)
+        return true;
+    }
+  return false;
+}
+
 /* Returns the priority for T, the thread passed as a parameter 
    A thread's priority is the maximum of any donations and its
    current set priority.

@@ -186,11 +186,16 @@ int
 process_wait (tid_t child_tid) 
 {
   struct thread* thread = thread_get_by_tid(child_tid);
-  if(!thread) return -1; // TID was invalid
+  if(!thread) 
+    return -1; // TID was invalid
+  
+  if(!thread_is_in_child_list(thread))
+    return -1; // thread was not a direct child
   
   lock_acquire(&thread->status_lock);
   
-  if(thread->waited_on_by != -1) { // thread already waits
+  if(thread->waited_on_by != -1) { 
+    // cur thread already waits
     lock_release(&thread->status_lock);
     return -1;
   }

@@ -147,17 +147,8 @@ get_nth_parameter(void* esp, int param_num)
  */
 static void syscall_create(struct intr_frame * f)
 {
-/*  void* size = f->esp + 2 *sizeof(char*);
-  syscall_check_user_pointer(size);
-  unsigned initial_size = *(unsigned*)size;
-  void* file = f->esp + sizeof(char*);
-  syscall_check_user_pointer(file);
- */ 
-
   unsigned initial_size = *(unsigned*)get_nth_parameter(f->esp, 2);
   char* fname = *(char**)get_nth_parameter(f->esp, 1); 
-
-//  char* fname = *(char**)file;
   syscall_check_user_pointer(fname);
 
   int len = strlen(fname);

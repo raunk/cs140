@@ -117,6 +117,9 @@ struct thread
     struct list_elem child_elem;
     struct list child_list;
     
+    struct list file_descriptors; /* List of open file descriptors */
+    int next_fd;
+    
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
 
@@ -128,6 +131,14 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+  
+struct file_descriptor_elem
+{
+  int fd;
+  struct file *f;
+  unsigned pos;
+  struct list_elem elem;
+};
   
 struct donation_elem
 {

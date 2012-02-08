@@ -891,6 +891,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->t_donating_to = NULL;
   t->lock_waiting_for = NULL;
   
+  /* Initialize structures needed to support file descriptors */
+  t->next_fd = 2;
+  list_init(&t->file_descriptors);
+  
   /* Setup thread variables for signaling dying condition */
   list_init(&t->child_list);
   cond_init(&t->is_dying);

@@ -1,3 +1,4 @@
+#include "devices/input.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "userprog/syscall.h"
@@ -6,6 +7,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/init.h"
+#include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -13,9 +15,15 @@
 
 static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
-static int syscall_write(void* esp);
-static void syscall_exit(int status);
+static void syscall_write(struct intr_frame *f);
+static void syscall_exit(struct intr_frame *f);
 static void syscall_create(struct intr_frame * f);
+static void syscall_open(struct intr_frame *f);
+static void syscall_read(struct intr_frame *f);
+static void syscall_filesize(struct intr_frame *f);
+
+static void exit_current_process(int status);
+static struct file_descriptor_elem *get_file_descriptor_elem(int fd);
 
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
@@ -29,6 +37,26 @@ safe_file_read (struct file *file, void *buffer, off_t size)
   bytes_read = file_read(file, buffer, size);
   lock_release(&filesys_lock);
   return bytes_read;
+}
+
+off_t
+safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs)
+{
+  off_t bytes_read;
+  lock_acquire(&filesys_lock);
+  bytes_read = file_read_at (file, buffer, size, file_ofs);
+  lock_release(&filesys_lock);
+  return bytes_read;
+}
+
+off_t
+safe_file_write_at (struct file *file, const void *buffer, off_t size, off_t file_ofs)
+{
+  off_t bytes_written;
+  lock_acquire(&filesys_lock);
+  bytes_written = file_write_at (file, buffer, size, file_ofs);
+  lock_release(&filesys_lock);
+  return bytes_written;
 }
 
 off_t
@@ -49,6 +77,7 @@ safe_filesys_create(const char* name, off_t initial_size)
   lock_release(&filesys_lock);
   return result; 
 }
+
 void
 safe_file_seek (struct file *file, off_t new_pos)
 {
@@ -90,8 +119,7 @@ syscall_check_user_pointer (void *ptr)
   
   // pointer is invalid if we get here
   // TODO: is this all we need to call?
-  syscall_exit(-1);
-  thread_exit();
+  exit_current_process(-1);
 }
 
 void
@@ -137,21 +165,19 @@ syscall_handler (struct intr_frame *f)
   int sys_call_number = *((int*)f->esp);
   
   if(sys_call_number == SYS_EXIT) {
-    void* status = f->esp + sizeof(char*);
-    syscall_check_user_pointer (status);
-    f->eax = *(int*)status;
-    syscall_exit(*(int*)status);
-    thread_exit();
-    
+    syscall_exit(f);
   } else if(sys_call_number == SYS_WRITE) {
-    int bytes_written = syscall_write(f->esp);
-    f->eax = bytes_written;
+    syscall_write(f);
   } else if(sys_call_number == SYS_READ) {
-    
+    syscall_read(f);
   } else if(sys_call_number == SYS_HALT) {
     shutdown_power_off();
   } else if(sys_call_number == SYS_CREATE){
     syscall_create(f);
+  } else if(sys_call_number == SYS_OPEN) {
+    syscall_open(f);
+  } else if(sys_call_number == SYS_FILESIZE) {
+    syscall_filesize(f);
   }
   /*
   switch(sys_call_number) {
@@ -184,7 +210,7 @@ syscall_handler (struct intr_frame *f)
 }
 
 static void
-syscall_exit(int status)
+exit_current_process(int status)
 {
   struct thread* cur = thread_current();
   
@@ -194,6 +220,19 @@ syscall_exit(int status)
   cond_signal(&cur->is_dying, &cur->status_lock);
   lock_release(&cur->status_lock);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
+  
+  thread_exit();
+}
+
+static void
+syscall_exit(struct intr_frame *f)
+{
+  void* status_ptr = f->esp + sizeof(char*);
+  syscall_check_user_pointer (status_ptr);
+  int status = *(int*)status_ptr;
+  f->eax = status;
+  
+  exit_current_process(status);
 }
 
 /* Write size bytes from buffer to the open file fd.  Return
@@ -205,19 +244,110 @@ syscall_exit(int status)
    
    FD 1 writes to console.
     */
-static int
-syscall_write(void* esp)
+static void
+syscall_write(struct intr_frame *f)
 {
+  void* esp = f->esp;
   int fd = *(int*)(esp + sizeof(char*));
   char* buffer = *(char**)(esp + 2 * sizeof(char*));
   unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
   
   syscall_check_user_pointer(buffer);
-  if(fd == STDOUT_FILENO)
-  {
+  if (fd == STDOUT_FILENO) {
+    /* Fd 1 writes to the console */
+    // TODO: address this part in the handout: 'Your code to write to the console 
+    //      should write all of buffer in one call to putbuf(), at least as long 
+    //      as size is not bigger than a few hundred bytes.'
     putbuf(buffer, length); 
     return length;
   }
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = 0;
+    return;
+  }
+  
+  off_t bytes_written = safe_file_write_at(fd_elem->f, buffer, length, fd_elem->pos);
+  fd_elem->pos += bytes_written;
+  f->eax = bytes_written;
+}
 
-  return 0;
+static void
+syscall_open(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  void* file = esp + sizeof(char*);
+  syscall_check_user_pointer(file);
+  char* fname = *(char**)file;
+  syscall_check_user_pointer(fname);
+  struct file *fi = safe_filesys_open (fname);
+  if (!fi) {
+    f->eax = -1;
+    return;
+  }
+  struct thread* cur = thread_current();
+  struct file_descriptor_elem* fd_elem =
+      (struct file_descriptor_elem*) malloc( sizeof(struct file_descriptor_elem));
+  fd_elem->fd = cur->next_fd++;
+  fd_elem->f = fi;
+  fd_elem->pos = 0;
+  list_push_front (&cur->file_descriptors, &fd_elem->elem);
+  f->eax = fd_elem->fd;
+}
+
+static struct file_descriptor_elem*
+get_file_descriptor_elem(int fd)
+{
+  struct list* l = &thread_current()->file_descriptors;
+  struct list_elem *e;
+  for (e = list_begin (l); e != list_end (l); e = list_next (e)) {
+    struct file_descriptor_elem *fd_elem =
+        list_entry (e, struct file_descriptor_elem, elem);
+    if (fd_elem->fd == fd)
+      return fd_elem;
+  }
+  return NULL;
+}
+
+static void
+syscall_read(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)(esp + sizeof(char*));
+  char* buffer = *(char**)(esp + 2 * sizeof(char*));
+  unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
+  
+  syscall_check_user_pointer(buffer);
+  if (fd == STDIN_FILENO) {
+    /* Fd 0 reads from the keyboard using input_getc() */
+    buffer[0] = input_getc();
+    f->eax = sizeof(uint8_t);
+    return;
+  }
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = -1;
+    return;
+  }
+  
+  off_t bytes_read = safe_file_read_at(fd_elem->f, buffer, length, fd_elem->pos);
+  fd_elem->pos += bytes_read;
+  f->eax = bytes_read;
+}
+
+static void
+syscall_filesize(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)(esp + sizeof(char*));
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = 0;
+    return;
+  }
+  
+  f->eax = safe_file_length(fd_elem->f);
 }

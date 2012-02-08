@@ -46,6 +46,7 @@ syscall_handler (struct intr_frame *f)
   
   if(sys_call_number == SYS_EXIT) {
     void* status = f->esp + sizeof(char*);
+    syscall_check_user_pointer (status);
     f->eax = *(int*)status;
     syscall_exit(*(int*)status);
     thread_exit();

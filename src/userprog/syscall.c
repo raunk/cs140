@@ -9,11 +9,13 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include <string.h>
 
 static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
 static int syscall_write(void* esp);
 static void syscall_exit(int status);
+static void syscall_create(struct intr_frame * f);
 
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
@@ -91,6 +93,33 @@ syscall_init (void)
   lock_init(&filesys_lock);
 }
 
+/* Handle a system call for create. This gets the size
+ * and file name, and checks all pointers involved. We
+ * also make sure the length of the file name string is
+ * in the proper range, and return false if it is not.
+ * We set the return value in f->eax.
+ */
+static void syscall_create(struct intr_frame * f)
+{
+  void* size = f->esp + 2 *sizeof(char*);
+  syscall_check_user_pointer(size);
+  unsigned initial_size = *(unsigned*)size;
+  void* file = f->esp + sizeof(char*);
+  syscall_check_user_pointer(file);
+  char* fname = *(char**)file;
+  syscall_check_user_pointer(fname);
+
+  int len = strlen(fname);
+
+  if(len < 1 || len > 14){
+    f->eax = false; 
+    return;
+  }
+
+  bool result = filesys_create(fname, initial_size); 
+  f->eax = result; 
+}
+
 static void
 syscall_handler (struct intr_frame *f) 
 {
@@ -113,6 +142,8 @@ syscall_handler (struct intr_frame *f)
     
   } else if(sys_call_number == SYS_HALT) {
     shutdown_power_off();
+  } else if(sys_call_number == SYS_CREATE){
+    syscall_create(f);
   }
   /*
   switch(sys_call_number) {

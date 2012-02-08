@@ -51,6 +51,16 @@ process_execute (const char *file_name)
   tid = thread_create (fn_no_args, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  
+  sema_down(&thread_current ()->is_loaded_sem);
+  // make sure child thread loaded successfully
+  if (tid != TID_ERROR) {
+    struct thread* child_thr = thread_get_by_child_tid(tid);
+    if(child_thr->exit_status == -1) {
+      return -1;
+    }
+  }
+  
   return tid;
 }
 
@@ -150,10 +160,18 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  if(!success) {
-    // TODO: handle this error
-    printf("FAILED TO LOAD FILE!!!!\n");
+  
+  /* If load failed, quit. */
+  if (!success) {
+    palloc_free_page (file_name);
+    
+    thread_current ()->exit_status = -1;
+    sema_up(&thread_current ()->parent->is_loaded_sem);
+    
+    thread_exit ();
   }
+  sema_up(&thread_current ()->parent->is_loaded_sem);
+  
   /* Add passed in arguments to the stack */
   if(strlen(file_name_) < file_name_len) {
     // string was shortened by strtok_r writing a null to delimiter location
@@ -163,10 +181,8 @@ start_process (void *file_name_)
   // set file_name first space back to null so that we have the right filename
   file_name = strtok_r(file_name_, " ", &saveptr);
   
-  /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+    
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -194,7 +210,7 @@ process_wait (tid_t child_tid)
   if(!thread) 
     return -1; // TID was invalid
   
-  if(!thread_is_in_child_list(thread))
+  if(!thread_get_by_child_tid(thread->tid))
     return -1; // thread was not a direct child
   
   lock_acquire(&thread->status_lock);

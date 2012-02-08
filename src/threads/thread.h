@@ -117,6 +117,9 @@ struct thread
     struct list_elem child_elem;
     struct list child_list;
     
+    struct thread *parent;
+    struct semaphore is_loaded_sem;
+    
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
 
@@ -164,7 +167,7 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 struct thread *thread_get_by_tid(tid_t tid);
-bool thread_is_in_child_list(struct thread* t);
+struct thread* thread_get_by_child_tid(tid_t tid);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);

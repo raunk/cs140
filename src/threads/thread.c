@@ -704,8 +704,8 @@ thread_set_priority (int new_priority)
   thread_yield_if_not_highest_priority();
 }
 
-bool
-thread_is_in_child_list(struct thread* t)
+struct thread*
+thread_get_by_child_tid(tid_t tid)
 {
   struct thread* cur = thread_current ();
   struct list_elem *e;
@@ -713,10 +713,10 @@ thread_is_in_child_list(struct thread* t)
        e = list_next (e))
     {
       struct thread *thr = list_entry (e, struct thread, child_elem);
-      if(thr->tid == t->tid)
-        return true;
+      if(thr->tid == tid)
+        return thr;
     }
-  return false;
+  return NULL;
 }
 
 /* Returns the priority for T, the thread passed as a parameter 
@@ -895,14 +895,19 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
   cond_init(&t->is_dying);
   lock_init(&t->status_lock);
+  sema_init(&t->is_loaded_sem, 0);
   
   // use running_thread since current thread might not have status
   // set to running yet
   struct thread* cur = running_thread ();
-  if(is_thread(cur))
+  if(is_thread(cur)) {
     list_push_back(&cur->child_list, &t->child_elem);
+    t->parent = cur;
+  }
   
   t->waited_on_by = -1; 
+  t->exit_status = 0;
+  
   
   list_push_back (&all_list, &t->allelem);
 }

@@ -1,9 +1,12 @@
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/init.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
@@ -11,6 +14,56 @@ static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
 static int syscall_write(void* esp);
 static void syscall_exit(int status);
+
+/* Lock used for accessing file system code. It is not safe for multiple
+   thread to access the code in the /filesys directory. */
+static struct lock filesys_lock;
+
+off_t
+safe_file_read (struct file *file, void *buffer, off_t size) 
+{
+  off_t bytes_read;
+  lock_acquire(&filesys_lock);
+  bytes_read = file_read(file, buffer, size);
+  lock_release(&filesys_lock);
+  return bytes_read;
+}
+
+off_t
+safe_file_length (struct file *file)
+{
+  off_t num_bytes;
+  lock_acquire(&filesys_lock);
+  num_bytes = file_length(file);
+  lock_release(&filesys_lock);
+  return num_bytes;
+}
+
+void
+safe_file_seek (struct file *file, off_t new_pos)
+{
+  lock_acquire(&filesys_lock);
+  file_seek(file, new_pos);
+  lock_release(&filesys_lock);
+}
+
+void
+safe_file_close (struct file *file)
+{
+  lock_acquire(&filesys_lock);
+  file_close(file);
+  lock_release(&filesys_lock);
+}
+
+struct file *
+safe_filesys_open (const char *name)
+{
+  struct file *f;
+  lock_acquire(&filesys_lock);
+  f = filesys_open(name);
+  lock_release(&filesys_lock);
+  return f;
+}
 
 void
 syscall_check_user_pointer (void *ptr)
@@ -35,6 +88,7 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&filesys_lock);
 }
 
 static void

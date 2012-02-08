@@ -90,16 +90,7 @@ setup_arguments(void *file_name, void *esp)
     esp += ((unsigned)strlen(arg) + 1);
   }
   
-  // read tokens from the front of file_name
-  // up to each null delimeter
-  // char* file_tokenizer = file_name;
-  // while(esp < PHYS_BASE) {
-  //   strlcpy (esp, file_tokenizer, strlen(file_tokenizer) + 1);
-  //   printf("CUR ARG: %s\n", file_tokenizer);
-  //   esp += ((unsigned)strlen(file_tokenizer) + 1);
-  //   file_tokenizer += strlen(file_tokenizer) + 1;
-  // }
-  
+  // replace esp at bottom of args
   esp = str_loc;
 
   // word align TODO not sure about this cast...
@@ -201,7 +192,7 @@ process_wait (tid_t child_tid)
   cond_wait(&thread->is_dying, &thread->status_lock); 
   int ret = thread->exit_status;
   lock_release(&thread->status_lock);
-
+  
   return ret; 
 }
 

@@ -9,6 +9,7 @@
 static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
 static int syscall_write(void* esp);
+static void syscall_exit(int status);
 
 void
 syscall_check_user_pointer (void *ptr)
@@ -25,7 +26,7 @@ syscall_check_user_pointer (void *ptr)
   
   // pointer is invalid if we get here
   // TODO: is this all we need to call?
-  // process_exit();
+  syscall_exit(-1);
   thread_exit();
 }
 
@@ -38,21 +39,15 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
+  syscall_check_user_pointer (f->esp);
+  
   // read sys call number from location pointed to by stack pointer
   int sys_call_number = *((int*)f->esp);
+  
   if(sys_call_number == SYS_EXIT) {
-    
-    struct thread* cur = thread_current();
-    
     void* status = f->esp + sizeof(char*);
     f->eax = *(int*)status;
-    cur->exit_status = *(int*)status;
-    
-    lock_acquire(&cur->status_lock);
-    cond_signal(&cur->is_dying, &cur->status_lock);
-    lock_release(&cur->status_lock);
-    printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
-    
+    syscall_exit(*(int*)status);
     thread_exit();
     
   } else if(sys_call_number == SYS_WRITE) {
@@ -67,9 +62,6 @@ syscall_handler (struct intr_frame *f)
     void* status;
 
     case SYS_EXIT:
-      
-      
-      
       break;
     case SYS_WRITE: 
       
@@ -92,6 +84,19 @@ syscall_handler (struct intr_frame *f)
   }
   */
   //thread_exit ();
+}
+
+static void
+syscall_exit(int status)
+{
+  struct thread* cur = thread_current();
+  
+  cur->exit_status = status;
+  
+  lock_acquire(&cur->status_lock);
+  cond_signal(&cur->is_dying, &cur->status_lock);
+  lock_release(&cur->status_lock);
+  printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
 }
 
 /* Write size bytes from buffer to the open file fd.  Return

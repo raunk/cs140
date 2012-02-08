@@ -129,6 +129,16 @@ syscall_init (void)
   lock_init(&filesys_lock);
 }
 
+
+static void*
+get_nth_parameter(void* esp, int param_num)
+{
+  void* param = esp + param_num * sizeof(char*);
+  syscall_check_user_pointer(param);
+  return param;
+}
+
+
 /* Handle a system call for create. This gets the size
  * and file name, and checks all pointers involved. We
  * also make sure the length of the file name string is
@@ -137,12 +147,17 @@ syscall_init (void)
  */
 static void syscall_create(struct intr_frame * f)
 {
-  void* size = f->esp + 2 *sizeof(char*);
+/*  void* size = f->esp + 2 *sizeof(char*);
   syscall_check_user_pointer(size);
   unsigned initial_size = *(unsigned*)size;
   void* file = f->esp + sizeof(char*);
   syscall_check_user_pointer(file);
-  char* fname = *(char**)file;
+ */ 
+
+  unsigned initial_size = *(unsigned*)get_nth_parameter(f->esp, 2);
+  char* fname = *(char**)get_nth_parameter(f->esp, 1); 
+
+//  char* fname = *(char**)file;
   syscall_check_user_pointer(fname);
 
   int len = strlen(fname);

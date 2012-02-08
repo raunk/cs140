@@ -51,6 +51,14 @@ syscall_handler (struct intr_frame *f)
     f->eax = *(int*)status;
     syscall_exit(*(int*)status);
     thread_exit();
+  } else if(sys_call_number == SYS_EXEC) {
+    void* cmd_line_p = f->esp + sizeof(char*);
+    syscall_check_user_pointer (cmd_line_p);
+    
+    char* cmd_line = *(char**)cmd_line_p;
+    syscall_check_user_pointer (cmd_line);
+
+    f->eax = process_execute(cmd_line);
     
   } else if(sys_call_number == SYS_WRITE) {
     int bytes_written = syscall_write(f->esp);

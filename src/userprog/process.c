@@ -37,13 +37,17 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
-  // read first token off file_name
-  char* saveptr;
-  char* f = strtok_r(file_name, " ", &saveptr);
+  
+  /* Read actual file name off of full file exec + args str */
+  char fn_no_args[14];
+  int i; const char* fn_ptr;
+  for(fn_ptr = file_name, i=0; *fn_ptr != ' ' && *fn_ptr != '\0'; fn_ptr++, i++) {
+    fn_no_args[i] = *fn_ptr;
+  }
+  fn_no_args[i] = '\0';
   
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (fn_no_args, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;

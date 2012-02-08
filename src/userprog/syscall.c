@@ -41,6 +41,14 @@ safe_file_length (struct file *file)
   return num_bytes;
 }
 
+bool 
+safe_filesys_create(const char* name, off_t initial_size)
+{
+  lock_acquire(&filesys_lock);
+  bool result = filesys_create(name, initial_size); 
+  lock_release(&filesys_lock);
+  return result; 
+}
 void
 safe_file_seek (struct file *file, off_t new_pos)
 {
@@ -116,7 +124,7 @@ static void syscall_create(struct intr_frame * f)
     return;
   }
 
-  bool result = filesys_create(fname, initial_size); 
+  bool result = safe_filesys_create(fname, initial_size); 
   f->eax = result; 
 }
 

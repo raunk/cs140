@@ -254,9 +254,10 @@ static void
 syscall_write(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)(esp + sizeof(char*));
-  char* buffer = *(char**)(esp + 2 * sizeof(char*));
-  unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
+  int fd = *(int*)get_nth_parameter(esp, 1);
+  char* buffer = *(char**)get_nth_parameter(esp, 2);
+  unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
+
   
   syscall_check_user_pointer(buffer);
   if (fd == STDOUT_FILENO) {

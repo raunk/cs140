@@ -57,6 +57,9 @@ setup_arguments(void *file_name, void *esp)
   char* str;
   char* saveptr;
   char* arg;
+  
+  int orig_len = strlen(file_name);
+  
   for (str = file_name; ; str = NULL) {
     arg = strtok_r(str, " ", &saveptr);
     
@@ -69,14 +72,33 @@ setup_arguments(void *file_name, void *esp)
   
   void* str_loc = esp;
   
+  // replace all the nulls in file_name so we can call strtok_r again
+  int i;
+  char *file_str = (char*)file_name;
+  for(i = 0; i < orig_len; i++) {
+    if(file_str[i] == '\0')
+      file_str[i] = ' ';
+  }
+  
+  for (str = file_name; ; str = NULL) {
+    arg = strtok_r(str, " ", &saveptr);
+    
+    if (arg == NULL)
+      break;
+    
+    strlcpy (esp, arg, strlen(arg) + 1);
+    esp += ((unsigned)strlen(arg) + 1);
+  }
+  
   // read tokens from the front of file_name
   // up to each null delimeter
-  char* file_tokenizer = file_name;
-  while(esp < PHYS_BASE) {
-    strlcpy (esp, file_tokenizer, strlen(file_tokenizer) + 1);
-    esp += ((unsigned)strlen(file_tokenizer) + 1);
-    file_tokenizer += strlen(file_tokenizer) + 1;
-  }
+  // char* file_tokenizer = file_name;
+  // while(esp < PHYS_BASE) {
+  //   strlcpy (esp, file_tokenizer, strlen(file_tokenizer) + 1);
+  //   printf("CUR ARG: %s\n", file_tokenizer);
+  //   esp += ((unsigned)strlen(file_tokenizer) + 1);
+  //   file_tokenizer += strlen(file_tokenizer) + 1;
+  // }
   
   esp = str_loc;
 

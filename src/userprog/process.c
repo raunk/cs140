@@ -40,7 +40,7 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
   
   /* Read actual file name off of full file exec + args str */
-  char fn_no_args[14];
+  char fn_no_args[15];
   int i; const char* fn_ptr;
   for(fn_ptr = file_name, i=0; *fn_ptr != ' ' && *fn_ptr != '\0'; fn_ptr++, i++) {
     fn_no_args[i] = *fn_ptr;
@@ -206,14 +206,16 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  struct thread* thread = thread_get_by_tid(child_tid);
+  struct thread* thread = thread_get_by_child_tid(child_tid);
   if(!thread) 
     return -1; // TID was invalid
-  
-  if(!thread_get_by_child_tid(thread->tid))
-    return -1; // thread was not a direct child
-  
+    
   lock_acquire(&thread->status_lock);
+  
+  if(thread->has_exited) {
+    lock_release(&thread->status_lock);
+    return thread->exit_status;
+  }
   
   if(thread->waited_on_by != -1) { 
     // cur thread already waits

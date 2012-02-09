@@ -139,6 +139,8 @@ syscall_handler (struct intr_frame *f)
   if(sys_call_number == SYS_EXIT) {
     void* status = f->esp + sizeof(char*);
     syscall_check_user_pointer (status);
+    printf("STATUS IS %d\n", *(int*)status);
+    printf("CHILD %d HAS PARENT: %d\n", thread_current()->tid, thread_current()->parent->tid);
     f->eax = *(int*)status;
     syscall_exit(*(int*)status);
     thread_exit();
@@ -150,6 +152,14 @@ syscall_handler (struct intr_frame *f)
     syscall_check_user_pointer (cmd_line);
 
     f->eax = process_execute(cmd_line);
+      
+  } else if(sys_call_number == SYS_WAIT) {
+    void* pid_p = f->esp + sizeof(char*);
+    syscall_check_user_pointer (pid_p);
+    
+    int pid = *(int*)pid_p;
+    printf("THREAD %d TO WAIT ON %d\n", thread_current()->tid, pid);
+    f->eax = process_wait(pid);
     
   } else if(sys_call_number == SYS_WRITE) {
     int bytes_written = syscall_write(f->esp);
@@ -195,10 +205,9 @@ static void
 syscall_exit(int status)
 {
   struct thread* cur = thread_current();
-  
-  cur->exit_status = status;
-  
   lock_acquire(&cur->status_lock);
+  cur->exit_status = status;
+  cur->has_exited = true;
   cond_signal(&cur->is_dying, &cur->status_lock);
   lock_release(&cur->status_lock);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);

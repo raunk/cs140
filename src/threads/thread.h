@@ -136,7 +136,6 @@ struct file_descriptor_elem
 {
   int fd;
   struct file *f;
-  unsigned pos;
   struct list_elem elem;
 };
   

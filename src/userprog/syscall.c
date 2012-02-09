@@ -21,6 +21,10 @@ static void syscall_create(struct intr_frame * f);
 static void syscall_open(struct intr_frame *f);
 static void syscall_read(struct intr_frame *f);
 static void syscall_filesize(struct intr_frame *f);
+static void syscall_remove(struct intr_frame *f);
+static void syscall_seek(struct intr_frame *f);
+static void syscall_tell(struct intr_frame *f);
+static void syscall_close(struct intr_frame *f);
 
 static void exit_current_process(int status);
 static struct file_descriptor_elem *get_file_descriptor_elem(int fd);
@@ -40,21 +44,11 @@ safe_file_read (struct file *file, void *buffer, off_t size)
 }
 
 off_t
-safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs)
-{
-  off_t bytes_read;
-  lock_acquire(&filesys_lock);
-  bytes_read = file_read_at (file, buffer, size, file_ofs);
-  lock_release(&filesys_lock);
-  return bytes_read;
-}
-
-off_t
-safe_file_write_at (struct file *file, const void *buffer, off_t size, off_t file_ofs)
+safe_file_write (struct file *file, const void *buffer, off_t size)
 {
   off_t bytes_written;
   lock_acquire(&filesys_lock);
-  bytes_written = file_write_at (file, buffer, size, file_ofs);
+  bytes_written = file_write (file, buffer, size);
   lock_release(&filesys_lock);
   return bytes_written;
 }
@@ -86,6 +80,15 @@ safe_file_seek (struct file *file, off_t new_pos)
   lock_release(&filesys_lock);
 }
 
+off_t
+safe_file_tell (struct file *file)
+{
+  lock_acquire(&filesys_lock);
+  off_t pos = file_tell(file);
+  lock_release(&filesys_lock);
+  return pos;
+}
+
 void
 safe_file_close (struct file *file)
 {
@@ -102,6 +105,15 @@ safe_filesys_open (const char *name)
   f = filesys_open(name);
   lock_release(&filesys_lock);
   return f;
+}
+
+bool
+safe_filesys_remove (const char *name)
+{
+  lock_acquire(&filesys_lock);
+  bool result = filesys_remove(name);
+  lock_release(&filesys_lock);
+  return result;
 }
 
 void
@@ -184,6 +196,14 @@ syscall_handler (struct intr_frame *f)
     syscall_open(f);
   } else if(sys_call_number == SYS_FILESIZE) {
     syscall_filesize(f);
+  } else if(sys_call_number == SYS_REMOVE) {
+    syscall_remove(f);
+  } else if(sys_call_number == SYS_SEEK) {
+    syscall_seek(f);
+  } else if(sys_call_number == SYS_TELL) {
+    syscall_tell(f);
+  } else if(sys_call_number == SYS_CLOSE) {
+    syscall_close(f);
   }
   /*
   switch(sys_call_number) {
@@ -275,8 +295,7 @@ syscall_write(struct intr_frame *f)
     return;
   }
   
-  off_t bytes_written = safe_file_write_at(fd_elem->f, buffer, length, fd_elem->pos);
-  fd_elem->pos += bytes_written;
+  off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }
 
@@ -298,7 +317,6 @@ syscall_open(struct intr_frame *f)
       (struct file_descriptor_elem*) malloc( sizeof(struct file_descriptor_elem));
   fd_elem->fd = cur->next_fd++;
   fd_elem->f = fi;
-  fd_elem->pos = 0;
   list_push_front (&cur->file_descriptors, &fd_elem->elem);
   f->eax = fd_elem->fd;
 }
@@ -339,8 +357,7 @@ syscall_read(struct intr_frame *f)
     return;
   }
   
-  off_t bytes_read = safe_file_read_at(fd_elem->f, buffer, length, fd_elem->pos);
-  fd_elem->pos += bytes_read;
+  off_t bytes_read = safe_file_read(fd_elem->f, buffer, length);
   f->eax = bytes_read;
 }
 
@@ -357,4 +374,63 @@ syscall_filesize(struct intr_frame *f)
   }
   
   f->eax = safe_file_length(fd_elem->f);
+}
+
+static void
+syscall_remove(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  void* file = get_nth_parameter(esp, 1);
+  syscall_check_user_pointer(file);
+  char* fname = *(char**)file;
+  syscall_check_user_pointer(fname);
+  
+  bool result = safe_filesys_remove(fname);
+  f->eax = result;
+}
+
+static void
+syscall_seek(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1);
+  unsigned position = *(unsigned*)get_nth_parameter(esp, 2);
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    return;
+  }
+  
+  safe_file_seek(fd_elem->f, position);
+}
+
+static void
+syscall_tell(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1);
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = 0;
+    return;
+  }
+  
+  f->eax = safe_file_tell(fd_elem->f);
+}
+
+static void
+syscall_close(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1);
+  
+  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    return;
+  }
+  
+  safe_file_close(fd_elem->f);
+  list_remove(&fd_elem->elem);
+  free(fd_elem);
 }

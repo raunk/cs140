@@ -266,7 +266,7 @@ syscall_write(struct intr_frame *f)
     //      should write all of buffer in one call to putbuf(), at least as long 
     //      as size is not bigger than a few hundred bytes.'
     putbuf(buffer, length); 
-    return length;
+    return;
   }
   
   struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
@@ -284,7 +284,7 @@ static void
 syscall_open(struct intr_frame *f)
 {
   void* esp = f->esp;
-  void* file = esp + sizeof(char*);
+  void* file = get_nth_parameter(esp, 1);
   syscall_check_user_pointer(file);
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname);
@@ -321,9 +321,9 @@ static void
 syscall_read(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)(esp + sizeof(char*));
-  char* buffer = *(char**)(esp + 2 * sizeof(char*));
-  unsigned length = *(unsigned*)(esp + 3 * sizeof(char*));
+  int fd = *(int*)get_nth_parameter(esp, 1);
+  char* buffer = *(char**)get_nth_parameter(esp, 2);
+  unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
   
   syscall_check_user_pointer(buffer);
   if (fd == STDIN_FILENO) {
@@ -348,7 +348,7 @@ static void
 syscall_filesize(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)(esp + sizeof(char*));
+  int fd = *(int*)get_nth_parameter(esp, 1);
   
   struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
   if (!fd_elem) {

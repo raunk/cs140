@@ -12,6 +12,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include <string.h>
+#include <list.h>
 
 static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
@@ -31,6 +32,58 @@ static struct file_descriptor_elem *get_file_descriptor_elem(int fd);
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
 static struct lock filesys_lock;
+
+static struct list executing_list;
+
+struct executing_elem
+{
+  struct inode* i;
+  struct list_elem elem;
+};
+
+void
+add_to_executing_list(struct file* f)
+{
+  struct executing_elem* ex_elem = 
+    (struct executing_elem*)malloc(sizeof(struct executing_elem));
+  ex_elem->i = file_get_inode(f); 
+  list_push_back(&executing_list, &ex_elem->elem); 
+}
+
+void
+remove_from_executing_list(struct file* f)
+{
+  struct list_elem *e;
+  struct inode* i = file_get_inode(f);
+  for(e = list_begin(&executing_list); e != list_end(&executing_list);
+      e = list_next(e))
+    { 
+        struct executing_elem* ex = list_entry(e, struct executing_elem, elem);
+        if(ex->i == i)
+        {
+//          list_remove(ex);
+          return;
+        }
+    }  
+}
+
+bool
+file_is_executing(struct file* f)
+{
+  struct list_elem *e;
+  struct inode* i = file_get_inode(f);
+  for(e = list_begin(&executing_list); e != list_end(&executing_list);
+      e = list_next(e))
+    { 
+        struct executing_elem* ex = list_entry(e, struct executing_elem, elem);
+        if(ex->i == i) 
+        {
+          return true;
+        }
+    }  
+  return false;
+}
+
 
 off_t
 safe_file_read (struct file *file, void *buffer, off_t size) 
@@ -138,6 +191,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&filesys_lock);
+  list_init(&executing_list);
 }
 
 
@@ -228,7 +282,6 @@ void
 exit_current_process(int status)
 {
   struct thread* cur = thread_current();
-  
   cur->exit_status = status;
   sema_up(&cur->is_dying);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
@@ -274,13 +327,18 @@ syscall_write(struct intr_frame *f)
     putbuf(buffer, length); 
     return;
   }
-  
+
   struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
   if (!fd_elem) {
     f->eax = 0;
     return;
   }
-  
+
+  if (file_is_executing(fd_elem->f))
+  {
+    f->eax = 0;
+    return;
+  }
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }
@@ -292,8 +350,10 @@ syscall_open(struct intr_frame *f)
   void* file = get_nth_parameter(esp, 1);
   syscall_check_user_pointer(file);
   char* fname = *(char**)file;
+
   syscall_check_user_pointer(fname);
   struct file *fi = safe_filesys_open (fname);
+
   if (!fi) {
     f->eax = -1;
     return;
@@ -305,6 +365,8 @@ syscall_open(struct intr_frame *f)
   fd_elem->f = fi;
   list_push_front (&cur->file_descriptors, &fd_elem->elem);
   f->eax = fd_elem->fd;
+
+
 }
 
 static struct file_descriptor_elem*
@@ -342,6 +404,7 @@ syscall_read(struct intr_frame *f)
     f->eax = -1;
     return;
   }
+
   
   off_t bytes_read = safe_file_read(fd_elem->f, buffer, length);
   f->eax = bytes_read;

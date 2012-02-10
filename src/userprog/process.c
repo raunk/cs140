@@ -160,7 +160,9 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  
+ 
+
+ 
   /* If load failed, quit. */
   if (!success) {
     palloc_free_page (file_name);
@@ -361,6 +363,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  add_to_executing_list(file);
+  
   /* Read and verify executable header. */
   if (safe_file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -373,6 +377,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
+
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -444,7 +449,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  safe_file_close (file);
+  //safe_file_close (file);
   return success;
 }
 

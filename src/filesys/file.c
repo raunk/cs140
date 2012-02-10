@@ -2,6 +2,7 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include <stdio.h>
 
 /* An open file. */
 struct file 
@@ -10,6 +11,12 @@ struct file
     off_t pos;                  /* Current position. */
     bool deny_write;            /* Has file_deny_write() been called? */
   };
+
+
+void file_print(struct file* file)
+{
+  printf("File: %p %u  denied %d\n", file->inode, file->pos, file->deny_write);
+}
 
 /* Opens a file for the given INODE, of which it takes ownership,
    and returns the new file.  Returns a null pointer if an
@@ -124,6 +131,8 @@ file_deny_write (struct file *file)
       file->deny_write = true;
       inode_deny_write (file->inode);
     }
+
+  file_print(file);
 }
 
 /* Re-enables write operations on FILE's underlying inode.
@@ -165,4 +174,16 @@ file_tell (struct file *file)
 {
   ASSERT (file != NULL);
   return file->pos;
+}
+
+
+
+bool 
+file_is_writeable(struct file * file)
+{
+  if(file->deny_write)
+  {
+    return false;
+  }
+  return true;
 }

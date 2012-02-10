@@ -2,6 +2,8 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
+#include <stdbool.h>
+#include <stdio.h>
 
 struct inode;
 
@@ -26,4 +28,6 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
+bool file_is_writeable(struct file *);
+void file_print(struct file* file);
 #endif /* filesys/file.h */

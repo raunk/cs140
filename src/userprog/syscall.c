@@ -26,7 +26,6 @@ static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
-static void exit_current_process(int status);
 static struct file_descriptor_elem *get_file_descriptor_elem(int fd);
 
 /* Lock used for accessing file system code. It is not safe for multiple
@@ -225,7 +224,7 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
-static void
+void
 exit_current_process(int status)
 {
   struct thread* cur = thread_current();

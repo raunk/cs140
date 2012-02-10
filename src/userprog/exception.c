@@ -4,6 +4,8 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -135,6 +137,16 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
+
+
+  /* NULL pointer dereferenced */
+  if(fault_addr == 0){
+    exit_current_process(-1); 
+  }
+
+  if(fault_addr >= PHYS_BASE){
+    exit_current_process(-1);
+  }
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */

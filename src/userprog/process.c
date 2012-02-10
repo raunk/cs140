@@ -209,24 +209,16 @@ process_wait (tid_t child_tid)
   struct thread* thread = thread_get_by_child_tid(child_tid);
   if(!thread) 
     return -1; // TID was invalid
-    
-  lock_acquire(&thread->status_lock);
   
   if(thread->waited_on_by != -1) { 
     // cur thread already waits
-    lock_release(&thread->status_lock);
     return -1;
   }
   thread->waited_on_by = thread_current ()->tid;
   
-  if(thread->has_exited) {
-      lock_release(&thread->status_lock);
-      return thread->exit_status;
-  }
+  sema_down(&thread->is_dying);
   
-  cond_wait(&thread->is_dying, &thread->status_lock); 
   int ret = thread->exit_status;
-  lock_release(&thread->status_lock);
   
   return ret; 
 }

@@ -897,9 +897,8 @@ init_thread (struct thread *t, const char *name, int priority)
   
   /* Setup thread variables for signaling dying condition */
   list_init(&t->child_list);
-  cond_init(&t->is_dying);
-  lock_init(&t->status_lock);
   sema_init(&t->is_loaded_sem, 0);
+  sema_init(&t->is_dying, 0);
   
   // use running_thread since current thread might not have status
   // set to running yet

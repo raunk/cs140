@@ -212,17 +212,17 @@ process_wait (tid_t child_tid)
     
   lock_acquire(&thread->status_lock);
   
-  if(thread->has_exited) {
-    lock_release(&thread->status_lock);
-    return thread->exit_status;
-  }
-  
   if(thread->waited_on_by != -1) { 
     // cur thread already waits
     lock_release(&thread->status_lock);
     return -1;
   }
   thread->waited_on_by = thread_current ()->tid;
+  
+  if(thread->has_exited) {
+      lock_release(&thread->status_lock);
+      return thread->exit_status;
+  }
   
   cond_wait(&thread->is_dying, &thread->status_lock); 
   int ret = thread->exit_status;

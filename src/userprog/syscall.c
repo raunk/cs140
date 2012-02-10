@@ -228,11 +228,9 @@ void
 exit_current_process(int status)
 {
   struct thread* cur = thread_current();
-  lock_acquire(&cur->status_lock);
+  
   cur->exit_status = status;
-  cur->has_exited = true;
-  cond_signal(&cur->is_dying, &cur->status_lock);
-  lock_release(&cur->status_lock);
+  sema_up(&cur->is_dying);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
   
   thread_exit();

@@ -112,20 +112,18 @@ struct thread
     struct lock *lock_waiting_for; /* Pointer to the lock that this 
                                       thread is currently waiting for */
 
-    struct condition is_dying;  /* Condition to signal when thread is dying */
-    struct lock status_lock; /* Lock to be acquired when checking thread status */
     struct list_elem child_elem;
     struct list child_list;
     
     struct thread *parent;
     struct semaphore is_loaded_sem;
+    struct semaphore is_dying;
 
     struct list file_descriptors; /* List of open file descriptors */
     int next_fd;
     
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
-    bool has_exited;    /* Whether this thread has exited or not */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

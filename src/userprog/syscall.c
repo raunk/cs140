@@ -230,6 +230,11 @@ exit_current_process(int status)
   struct thread* cur = thread_current();
   
   cur->exit_status = status;
+
+  file_allow_write(cur->executing_file);
+  safe_file_close(cur->executing_file);
+
+
   sema_up(&cur->is_dying);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
   

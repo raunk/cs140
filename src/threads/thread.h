@@ -125,6 +125,8 @@ struct thread
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
 
+    struct file* executing_file;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

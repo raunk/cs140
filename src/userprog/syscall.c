@@ -231,6 +231,7 @@ exit_current_process(int status)
   
   cur->exit_status = status;
 
+  /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
   safe_file_close(cur->executing_file);
 

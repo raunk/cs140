@@ -447,7 +447,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-//  safe_file_close (file);
+
+  /* We no longer close the file since we keep it open while 
+     executing to prevent writes */
+
   return success;
 }
 

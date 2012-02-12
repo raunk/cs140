@@ -338,8 +338,9 @@ thread_donate_priority(struct thread* t_donor)
   }
 }
 
-/* Remove all the priority donations made to the specified thread
-   for a specific lock. Called when a thread releases a lock. */
+/* Removes and frees all the priority donations made to the specified thread
+   for a specific lock. If for_lock is NULL, then removes and frees all
+   priority donations. Called when a thread releases a lock or exits. */
 void
 thread_remove_donations(struct thread* t, struct lock* for_lock)
 {
@@ -350,10 +351,50 @@ thread_remove_donations(struct thread* t, struct lock* for_lock)
     struct donation_elem *donation = list_entry(e, struct donation_elem, 
                                                 elem);
     struct list_elem *next_e = list_next(e);
-    if (donation->l == for_lock) {
+    if (for_lock == NULL || donation->l == for_lock) {
       list_remove(e);
       free(donation);
     }
+    e = next_e;
+  }
+}
+
+struct file_descriptor_elem*
+thread_add_file_descriptor_elem(struct file *fi)
+{
+  struct thread* cur = thread_current();
+  struct file_descriptor_elem* fd_elem =
+      (struct file_descriptor_elem*) malloc( sizeof(struct file_descriptor_elem));
+  fd_elem->fd = cur->next_fd++;
+  fd_elem->f = fi;
+  list_push_front (&cur->file_descriptors, &fd_elem->elem);
+  return fd_elem;
+}
+
+struct file_descriptor_elem*
+thread_get_file_descriptor_elem(int fd)
+{
+  struct list* l = &thread_current()->file_descriptors;
+  struct list_elem *e;
+  for (e = list_begin (l); e != list_end (l); e = list_next (e)) {
+    struct file_descriptor_elem *fd_elem =
+        list_entry (e, struct file_descriptor_elem, elem);
+    if (fd_elem->fd == fd)
+      return fd_elem;
+  }
+  return NULL;
+}
+
+void
+thread_free_file_descriptor_elems(struct thread* t)
+{
+  struct list* l = &t->file_descriptors;
+  struct list_elem *e;
+  for (e = list_begin (l); e != list_end (l);) {
+    struct file_descriptor_elem *fd_elem =
+        list_entry (e, struct file_descriptor_elem, elem);
+    struct list_elem *next_e = list_next(e);
+    free(fd_elem);
     e = next_e;
   }
 }
@@ -1001,6 +1042,8 @@ thread_schedule_tail (struct thread *prev)
       while(!list_empty(&prev->child_list)) {
         elem = list_pop_front(&prev->child_list);
         child = list_entry(elem, struct thread, child_elem);
+        thread_remove_donations(child, NULL);
+        thread_free_file_descriptor_elems(child);
         palloc_free_page(child);
       }
     }

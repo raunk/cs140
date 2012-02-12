@@ -207,6 +207,11 @@ bool thread_priority_function(const struct list_elem *a,
                               const struct list_elem* b, void* aux);
 void thread_yield_if_not_highest_priority(void);
 
+/* Methods for handling file descriptors. */
+struct file_descriptor_elem* thread_add_file_descriptor_elem(struct file *fi);
+struct file_descriptor_elem* thread_get_file_descriptor_elem(int fd);
+void thread_free_file_descriptor_elems();
+
 /* Re-compute methods for multi-level feedback queue scheduler */
 void thread_compute_priorities(void);
 void thread_compute_load_average(void);

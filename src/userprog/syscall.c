@@ -26,7 +26,6 @@ static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
-static struct file_descriptor_elem *get_file_descriptor_elem(int fd);
 
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
@@ -180,7 +179,7 @@ syscall_handler (struct intr_frame *f)
   
   // read sys call number from location pointed to by stack pointer
   int sys_call_number = *((int*)f->esp);
-  
+ // printf("TID: %d, no: %d\n", thread_current()->tid, sys_call_number);
   if(sys_call_number == SYS_EXIT) {
     syscall_exit(f);
     //thread_exit();
@@ -192,7 +191,6 @@ syscall_handler (struct intr_frame *f)
     syscall_check_user_pointer (cmd_line);
 
     f->eax = process_execute(cmd_line);
-      
   } else if(sys_call_number == SYS_WAIT) {
     void* pid_p = f->esp + sizeof(char*);
     syscall_check_user_pointer (pid_p);
@@ -235,7 +233,7 @@ exit_current_process(int status)
   file_allow_write(cur->executing_file);
   safe_file_close(cur->executing_file);
 
-
+//  printf("UP %d\n", cur->tid);
   sema_up(&cur->is_dying);
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
   
@@ -281,7 +279,7 @@ syscall_write(struct intr_frame *f)
     return;
   }
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     f->eax = 0;
     return;
@@ -304,27 +302,7 @@ syscall_open(struct intr_frame *f)
     f->eax = -1;
     return;
   }
-  struct thread* cur = thread_current();
-  struct file_descriptor_elem* fd_elem =
-      (struct file_descriptor_elem*) malloc( sizeof(struct file_descriptor_elem));
-  fd_elem->fd = cur->next_fd++;
-  fd_elem->f = fi;
-  list_push_front (&cur->file_descriptors, &fd_elem->elem);
-  f->eax = fd_elem->fd;
-}
-
-static struct file_descriptor_elem*
-get_file_descriptor_elem(int fd)
-{
-  struct list* l = &thread_current()->file_descriptors;
-  struct list_elem *e;
-  for (e = list_begin (l); e != list_end (l); e = list_next (e)) {
-    struct file_descriptor_elem *fd_elem =
-        list_entry (e, struct file_descriptor_elem, elem);
-    if (fd_elem->fd == fd)
-      return fd_elem;
-  }
-  return NULL;
+  f->eax = thread_add_file_descriptor_elem(fi)->fd;
 }
 
 static void
@@ -343,7 +321,7 @@ syscall_read(struct intr_frame *f)
     return;
   }
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     f->eax = -1;
     return;
@@ -359,7 +337,7 @@ syscall_filesize(struct intr_frame *f)
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1);
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     f->eax = 0;
     return;
@@ -388,7 +366,7 @@ syscall_seek(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1);
   unsigned position = *(unsigned*)get_nth_parameter(esp, 2);
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     return;
   }
@@ -402,7 +380,7 @@ syscall_tell(struct intr_frame *f)
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1);
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     f->eax = 0;
     return;
@@ -417,7 +395,7 @@ syscall_close(struct intr_frame *f)
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1);
   
-  struct file_descriptor_elem* fd_elem = get_file_descriptor_elem(fd);
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     return;
   }

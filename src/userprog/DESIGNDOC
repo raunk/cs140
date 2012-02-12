@@ -60,9 +60,26 @@ the size of one page we kill the process with status -1.
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+strtok(), as described by the C-standard, is not thread safe.  strtok() stores
+the internal state of the string being parsed in a static buffer so that 
+multiple strings cannot be safely tokenized simultaneously.  strtok_r()
+fixes this problem by taking a user provided internal state pointer, 
+allowing the function to be re-entrant.
+
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+1. The Unix approach allows command interpretation to be easily changed.  If, 
+for example, we wanted to change the delimiter between arguments, then we would
+only need to change the shell.  The Pintos approach requires us to modify the
+kernel itself which would be a much more intensive change to make.
+
+2. The Unix approach prevents users from passing arbitrary data into the
+kernel.  If the shell first verifies the validity of the argument string, then
+there is a lot less chance for a user to pass a malicious string into the
+kernel that could crash it or allow access to a restricted part of the system.
 
 			     SYSTEM CALLS
 			     ============
@@ -73,14 +90,34 @@ the size of one page we kill the process with status -1.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+New members for struct ‘thread’:
+struct list_elem child_elem;    /* Element for putting this thread into 
+                                   other threads' lists of children */
+struct list child_list;         /* List of child threads of current
+                                   thread */
+struct thread *parent;          /* The parent of the current thread */
+struct semaphore is_loaded_sem; /* Used to signal whether a process 
+                                   successfully loaded or not */
+struct semaphore is_dying;      /* Used to signal a parent process 
+                                   that might be waiting on the current 
+								   process */
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+
+
 
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+Before dereferencing or otherwise utilizing any user provided pointer, the 
+passed pointer is checked to make sure that it points to some valid, mapped 
+location in user virtual address space.  If it does not then the
+user process is killed immediately.  
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least

@@ -105,21 +105,24 @@ struct thread
     int64_t wakeup_tick;            /* A time to wake this thread up */
     
     /* Used to implement priority donations. */
-    struct thread *t_donating_to; /* Pointer to the thread that currently 
-                                     holds a donation from this thread */
-    struct list recvd_donations; /* List of donations received 
-                                    from other threads */
+    struct thread *t_donating_to;  /* Pointer to the thread that currently 
+                                      holds a donation from this thread */
+    struct list recvd_donations;   /* List of donations received 
+                                      from other threads */
     struct lock *lock_waiting_for; /* Pointer to the lock that this 
                                       thread is currently waiting for */
+    /* System call specifics */
+    struct list_elem child_elem;    /* Element for putting this thread into 
+                                       other threads' lists of children */
+    struct list child_list;         /* List of child threads of current
+                                       thread */
+    struct thread *parent;          /* The parent of the current thread */
+    struct semaphore is_loaded_sem; /* Used to signal whether a process 
+                                       successfully loaded or not */
+    struct semaphore is_dying;      /* Used to signal a parent process 
+                                       that might be waiting on cur process */
 
-    struct list_elem child_elem;
-    struct list child_list;
-    
-    struct thread *parent;
-    struct semaphore is_loaded_sem;
-    struct semaphore is_dying;
-
-    struct list file_descriptors; /* List of open file descriptors */
+    struct list file_descriptors;   /* List of open file descriptors */
     int next_fd;
     
     int waited_on_by;   /* pid of process waiting on this thread */

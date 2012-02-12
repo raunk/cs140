@@ -393,7 +393,6 @@ thread_free_file_descriptor_elems(struct thread* t)
   for (e = list_begin (l); e != list_end (l);) {
     struct file_descriptor_elem *fd_elem =
         list_entry (e, struct file_descriptor_elem, elem);
-    //printf("FREEING %d, %p\n", fd_elem->fd, fd_elem);
     struct list_elem *next_e = list_next(e);
     safe_file_close(fd_elem->f);
     free(fd_elem);
@@ -1037,16 +1036,28 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
-      //palloc_free_page (prev);
-      // only free thread's children
+
       struct list_elem* elem; 
       struct thread* child;
       while(!list_empty(&prev->child_list)) {
         elem = list_pop_front(&prev->child_list);
         child = list_entry(elem, struct thread, child_elem);
-        thread_remove_donations(child, NULL);
-        thread_free_file_descriptor_elems(child);
-        palloc_free_page(child);
+        /* Only free child if it is not still running */
+        if(child->status == THREAD_DYING) {
+          thread_remove_donations(child, NULL);
+          thread_free_file_descriptor_elems(child);
+          palloc_free_page(child);
+        } else {
+          /* Child is orphaned */
+          child->parent = NULL;
+        }
+      }
+      
+      /* Prev has been orphaned so kill it now */
+      if(prev->parent == NULL) {
+        thread_remove_donations(prev, NULL);
+        thread_free_file_descriptor_elems(prev);
+        palloc_free_page(prev);
       }
     }
 }

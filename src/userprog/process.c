@@ -61,7 +61,7 @@ process_execute (const char *file_name)
       return -1;
     }
   }
-  
+
   return tid;
 }
 
@@ -76,6 +76,8 @@ setup_arguments(void *file_name, void *esp)
   
   int orig_len = strlen(file_name);
   
+  /* Figure out where to end of arg stack is (where first arg will be placed) */
+  int num_dec = 0;
   for (str = file_name; ; str = NULL) {
     arg = strtok_r(str, " ", &saveptr);
     
@@ -83,12 +85,22 @@ setup_arguments(void *file_name, void *esp)
       break;
     
     num_tokens++;
-    esp -= ((unsigned)strlen(arg) + 1);
+    num_dec += ((unsigned)strlen(arg) + 1);
   }
   
+  /* Determine if we might overflow the stack page 
+     bytes used = (num bytes for args) + (num bytes for null terminators) +    
+     (number of bytes used by argv pointers) + (argv pointer) + argc + word align */
+  int args_size = num_dec + num_tokens + ((num_tokens+1) * sizeof(char*)) + 3*sizeof(char*);
+  if(args_size >= PGSIZE)
+    exit_current_process(-1);
+  
+  esp -= num_dec;
+  
+  /* Mark location where args will end */
   void* str_loc = esp;
   
-  // replace all the nulls in file_name so we can call strtok_r again
+  /* Replace all the nulls in file_name so we can call strtok_r again */
   int i;
   char *file_str = (char*)file_name;
   for(i = 0; i < orig_len; i++) {
@@ -96,6 +108,7 @@ setup_arguments(void *file_name, void *esp)
       file_str[i] = ' ';
   }
   
+  /* Call strtok_r again to actually place arg strings in memory in correct order */
   for (str = file_name; ; str = NULL) {
     arg = strtok_r(str, " ", &saveptr);
     
@@ -106,37 +119,37 @@ setup_arguments(void *file_name, void *esp)
     esp += ((unsigned)strlen(arg) + 1);
   }
   
-  // replace esp at bottom of args
+  /* Replace esp at bottom of args */
   esp = str_loc;
 
-  // word align TODO not sure about this cast...
+  /* Word align */
   esp -= ((unsigned)esp % sizeof(char*));
   
-  // give enough space for ptrs (+1 for null argv[argc] arg)
+  /* Give enough space for ptrs (+1 for null argv[argc] arg) */
   esp -= (num_tokens + 1) * sizeof(char*);
   
-  // argv[i] needs to be pointer to actual string
-  // read from str_loc up to null
+  /* argv[i] needs to be pointer to actual string
+    read from str_loc up to highest possible memory addr */
   while(str_loc < PHYS_BASE) {
     *(unsigned*)esp = str_loc;
     esp += sizeof(unsigned*);
     str_loc += strlen(str_loc) + 1;
   }
   
-  // last val of argv is always NULL
+  /* Last val of argv is always NULL */
   *(unsigned*)esp = 0;
   
-  // re place esp
+  /* Replace esp below address pointers */
   esp -= (num_tokens + 1) * sizeof(char*);
   
-  // argv
+  /* argv */
   *(unsigned*)esp = (esp + sizeof(char*));
 
-  // argc
+  /* argc */
   esp -= sizeof(char*);
   *(unsigned*)esp = num_tokens;
   
-  // fake return addr
+  /* fake return addr */
   esp -= sizeof(char*);
   *(unsigned*)esp = 0;                         
   

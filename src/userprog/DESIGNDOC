@@ -29,12 +29,32 @@ Eric Conner <econner@stanford.edu>
 >> A1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+None.
 
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
+
+Arguments are parsed using the strtok_r function to break the file name
+string into tokens.  We first consume all of the tokens in the file name
+string once to determine where the first argument should be 
+placed.  We then restore the file name string to its original state by replacing
+all of the extra null terminators written to it with spaces.  We then
+tokenize the file name string one more time and place the strings in
+memory walking up the stack toward PHYS_BASE from where we determined
+the first argument should go.  
+
+Next we perform a similar process to write the addresses for the argv array. We 
+first determine where the first pointer should go based on the number of
+arguments.  We then process up the stack from this location writing the
+argument string addresses.  Finally we set the pointer to argv and set
+argc.
+
+We avoid overflowing the stack page by first calculating how much space the
+passed in arguments will take up in memory.  If the arguments will exceed
+the size of one page we kill the process with status -1.
 
 ---- RATIONALE ----
 

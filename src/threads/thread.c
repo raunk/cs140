@@ -16,6 +16,7 @@
 
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 #ifdef DEBUG
@@ -106,6 +107,8 @@ void thread_reinsert_into_list(struct thread *t, struct list *list);
 void thread_initialize_priority_queues(void);
 void thread_compute_recent_cpu_for_thread(struct thread* t, void *aux);
 void thread_compute_priority_for_thread(struct thread* t, void *aux UNUSED);
+struct file_descriptor_elem* thread_get_file_descriptor_elem(int fd);
+void thread_free_file_descriptor_elems(struct thread* t);
 
 static void thread_add_to_queue(struct thread* t);
 

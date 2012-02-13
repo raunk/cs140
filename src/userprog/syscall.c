@@ -1,8 +1,10 @@
 #include "devices/input.h"
+#include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -28,6 +30,15 @@ static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
+off_t safe_file_read (struct file *file, void *buffer, off_t size);
+off_t safe_file_write (struct file *file, const void *buffer, off_t size);
+off_t safe_file_length (struct file *file);
+bool safe_filesys_create(const char* name, off_t initial_size);
+void safe_file_seek (struct file *file, off_t new_pos);
+off_t safe_file_tell (struct file *file);
+void safe_file_close (struct file *file);
+struct file *safe_filesys_open (const char *name);
+bool safe_filesys_remove (const char *name);
 
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
@@ -277,7 +288,10 @@ syscall_write(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1);
   char* buffer = *(char**)get_nth_parameter(esp, 2);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
+  
+  /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
+  syscall_check_user_pointer(buffer+length);
   
   if (fd == STDOUT_FILENO) {
     /* Write to the console. Should write all of buffer in one call to putbuf(),
@@ -326,7 +340,10 @@ syscall_read(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1);
   char* buffer = *(char**)get_nth_parameter(esp, 2);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
+  
+  /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
+  syscall_check_user_pointer(buffer+length);
   
   if (fd == STDIN_FILENO) {
     /* Fd 0 reads from the keyboard using input_getc() */

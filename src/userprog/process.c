@@ -129,7 +129,7 @@ setup_arguments(void *file_name, void *esp)
   /* argv[i] needs to be pointer to actual string
     read from str_loc up to highest possible memory addr */
   while(str_loc < PHYS_BASE) {
-    *(unsigned*)esp = str_loc;
+    *(unsigned*)esp = (unsigned) str_loc;
     esp += sizeof(unsigned*);
     str_loc += strlen(str_loc) + 1;
   }
@@ -141,7 +141,7 @@ setup_arguments(void *file_name, void *esp)
   esp -= (num_tokens + 1) * sizeof(char*);
   
   /* argv */
-  *(unsigned*)esp = (esp + sizeof(char*));
+  *(unsigned*)esp = (unsigned) ((char*)esp + sizeof(char*));
 
   /* argc */
   esp -= sizeof(char*);
@@ -161,7 +161,7 @@ start_process (void *file_name_)
 {
   // file_name will be first token from passed in file name
   char *saveptr;
-  int file_name_len = strlen(file_name_);
+  unsigned file_name_len = strlen(file_name_);
   char *file_name = strtok_r(file_name_, " ", &saveptr);
   struct intr_frame if_;
   bool success;

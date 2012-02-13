@@ -17,6 +17,8 @@ static void syscall_handler (struct intr_frame *);
 static void syscall_check_user_pointer (void *ptr);
 static void syscall_write(struct intr_frame *f);
 static void syscall_exit(struct intr_frame *f);
+static void syscall_exec(struct intr_frame *f);
+static void syscall_wait(struct intr_frame *f);
 static void syscall_create(struct intr_frame * f);
 static void syscall_open(struct intr_frame *f);
 static void syscall_read(struct intr_frame *f);
@@ -31,6 +33,9 @@ static void syscall_close(struct intr_frame *f);
    thread to access the code in the /filesys directory. */
 static struct lock filesys_lock;
 
+/* The following safe_* functions simply acquire the filesys lock before
+   and release the lock after invoking their analogous functions from the
+   filesys/ directory. */
 off_t
 safe_file_read (struct file *file, void *buffer, off_t size) 
 {
@@ -114,21 +119,21 @@ safe_filesys_remove (const char *name)
   return result;
 }
 
+/* Checks if a pointer passed by a user program is valid.
+   Exits the current process if the pointer found to be invalid. */
 void
 syscall_check_user_pointer (void *ptr)
 {
-  // check that it is within user memory
+  // Check that it is within user memory
   if(is_user_vaddr(ptr)) {
-    // TODO: is this the right thread?? or are we executing from a different process now?
     struct thread *t = thread_current ();
-    // check that memory has been mapped
+    // Check that memory has been mapped
     if(pagedir_get_page (t->pagedir, ptr) != NULL) {
       return;
     }
   }
   
-  // pointer is invalid if we get here
-  // TODO: is this all we need to call?
+  // Pointer is invalid if we get here
   exit_current_process(-1);
 }
 
@@ -139,7 +144,7 @@ syscall_init (void)
   lock_init(&filesys_lock);
 }
 
-
+/* Returns the nth parameter to the system call given the stack pointer. */
 static void*
 get_nth_parameter(void* esp, int param_num)
 {
@@ -177,28 +182,14 @@ syscall_handler (struct intr_frame *f)
 {
   syscall_check_user_pointer (f->esp);
   
-  // read sys call number from location pointed to by stack pointer
+  // Read sys call number from location pointed to by stack pointer
   int sys_call_number = *((int*)f->esp);
- // printf("TID: %d, no: %d\n", thread_current()->tid, sys_call_number);
   if(sys_call_number == SYS_EXIT) {
     syscall_exit(f);
-    //thread_exit();
   } else if(sys_call_number == SYS_EXEC) {
-    void* cmd_line_p = f->esp + sizeof(char*);
-    syscall_check_user_pointer (cmd_line_p);
-    
-    char* cmd_line = *(char**)cmd_line_p;
-    syscall_check_user_pointer (cmd_line);
-
-    f->eax = process_execute(cmd_line);
+    syscall_exec(f);
   } else if(sys_call_number == SYS_WAIT) {
-    void* pid_p = f->esp + sizeof(char*);
-    syscall_check_user_pointer (pid_p);
-    
-    int pid = *(int*)pid_p;
-    //printf("THREAD %d TO WAIT ON %d\n", thread_current()->tid, pid);
-    f->eax = process_wait(pid);
-    //syscall_exit(f);
+    syscall_wait(f);
   } else if(sys_call_number == SYS_WRITE) {
     syscall_write(f);
   } else if(sys_call_number == SYS_READ) {
@@ -242,12 +233,30 @@ exit_current_process(int status)
 static void
 syscall_exit(struct intr_frame *f)
 {
-  void* status_ptr = f->esp + sizeof(char*);
-  syscall_check_user_pointer (status_ptr);
-  int status = *(int*)status_ptr;
-  f->eax = status;
+  void* esp = f->esp;
+  int status = *(int*)get_nth_parameter(esp, 1);
   
+  f->eax = status;
   exit_current_process(status);
+}
+
+static void
+syscall_exec(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  char* cmd_line = *(char**)get_nth_parameter(esp, 1);
+  syscall_check_user_pointer (cmd_line);
+
+  f->eax = process_execute(cmd_line);
+}
+
+static void
+syscall_wait(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int pid = *(int*)get_nth_parameter(esp, 1);
+  
+  f->eax = process_wait(pid);
 }
 
 /* Write size bytes from buffer to the open file fd.  Return
@@ -266,9 +275,8 @@ syscall_write(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1);
   char* buffer = *(char**)get_nth_parameter(esp, 2);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
-
-  
   syscall_check_user_pointer(buffer);
+  
   if (fd == STDOUT_FILENO) {
     /* Fd 1 writes to the console */
     // TODO: address this part in the handout: 'Your code to write to the console 
@@ -293,9 +301,9 @@ syscall_open(struct intr_frame *f)
 {
   void* esp = f->esp;
   void* file = get_nth_parameter(esp, 1);
-  syscall_check_user_pointer(file);
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname);
+  
   struct file *fi = safe_filesys_open (fname);
   if (!fi) {
     f->eax = -1;
@@ -311,8 +319,8 @@ syscall_read(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1);
   char* buffer = *(char**)get_nth_parameter(esp, 2);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
-  
   syscall_check_user_pointer(buffer);
+  
   if (fd == STDIN_FILENO) {
     /* Fd 0 reads from the keyboard using input_getc() */
     buffer[0] = input_getc();
@@ -349,9 +357,7 @@ static void
 syscall_remove(struct intr_frame *f)
 {
   void* esp = f->esp;
-  void* file = get_nth_parameter(esp, 1);
-  syscall_check_user_pointer(file);
-  char* fname = *(char**)file;
+  char* fname = *(char**)get_nth_parameter(esp, 1);
   syscall_check_user_pointer(fname);
   
   bool result = safe_filesys_remove(fname);

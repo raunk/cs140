@@ -51,9 +51,7 @@ process_execute (const char *file_name)
   tid = thread_create (fn_no_args, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  //printf("ENTER %d\n", thread_current()->tid);
   sema_down(&thread_current ()->is_loaded_sem);
-  //printf("LEAVE %d\n", thread_current()->tid);
   // make sure child thread loaded successfully
   if (tid != TID_ERROR) {
     struct thread* child_thr = thread_get_by_child_tid(tid);
@@ -230,7 +228,6 @@ process_wait (tid_t child_tid)
   }
   thread->waited_on_by = thread_current ()->tid;
   
-  //printf("DOWN %d\n", child_tid);
   sema_down(&thread->is_dying);
   int ret = thread->exit_status;
   

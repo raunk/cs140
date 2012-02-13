@@ -141,8 +141,9 @@ struct thread
   
 struct file_descriptor_elem
 {
-  int fd;
-  struct file *f;
+  int fd; /* File descriptor number */
+  struct file *f; /* File struct pointer. New one is allocated each time a file
+                     is opened, deallocated when the file is closed. */
   struct list_elem elem;
 };
   

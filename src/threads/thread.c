@@ -359,6 +359,9 @@ thread_remove_donations(struct thread* t, struct lock* for_lock)
   }
 }
 
+/* Allocates a new file_descriptor_elem to wrap the given file struct with
+   a file descriptor number and assigns to the current thread. The file
+   descriptor number is unique to the current thread. */
 struct file_descriptor_elem*
 thread_add_file_descriptor_elem(struct file *fi)
 {
@@ -371,6 +374,8 @@ thread_add_file_descriptor_elem(struct file *fi)
   return fd_elem;
 }
 
+/* Returns the file_descriptor_elem held by the current thread with the
+   given file descriptor number fd. Returns NULL if no such thread found. */
 struct file_descriptor_elem*
 thread_get_file_descriptor_elem(int fd)
 {
@@ -385,6 +390,7 @@ thread_get_file_descriptor_elem(int fd)
   return NULL;
 }
 
+/* Frees each file_descriptor_elem held by the given thread. */
 void
 thread_free_file_descriptor_elems(struct thread* t)
 {
@@ -746,6 +752,8 @@ thread_set_priority (int new_priority)
   thread_yield_if_not_highest_priority();
 }
 
+/* Returns the thread in the list of child threads of the current thread
+   with the given tid. Returns NULL if no thread with that tid found. */
 struct thread*
 thread_get_by_child_tid(tid_t tid)
 {
@@ -1055,6 +1063,8 @@ thread_schedule_tail (struct thread *prev)
       
       /* Prev has been orphaned so kill it now */
       if(prev->parent == NULL) {
+        /* Remember to free any allocated memory associated with the thread
+           being freed. Includes donations and file descriptors. */
         thread_remove_donations(prev, NULL);
         thread_free_file_descriptor_elems(prev);
         palloc_free_page(prev);

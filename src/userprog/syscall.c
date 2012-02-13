@@ -291,7 +291,7 @@ syscall_write(struct intr_frame *f)
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
-  syscall_check_user_pointer(buffer+length);
+  syscall_check_user_pointer(buffer+length-1);
   
   if (fd == STDOUT_FILENO) {
     /* Write to the console. Should write all of buffer in one call to putbuf(),
@@ -343,7 +343,7 @@ syscall_read(struct intr_frame *f)
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
-  syscall_check_user_pointer(buffer+length);
+  syscall_check_user_pointer(buffer+length-1);
   
   if (fd == STDIN_FILENO) {
     /* Fd 0 reads from the keyboard using input_getc() */

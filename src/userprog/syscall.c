@@ -259,6 +259,8 @@ syscall_wait(struct intr_frame *f)
   f->eax = process_wait(pid);
 }
 
+#define MAX_PUTBUF_SIZE 256
+
 /* Write size bytes from buffer to the open file fd.  Return
    the number of bytes actually written, which may be less than
    size if some bytes could not be written.
@@ -278,11 +280,16 @@ syscall_write(struct intr_frame *f)
   syscall_check_user_pointer(buffer);
   
   if (fd == STDOUT_FILENO) {
-    /* Fd 1 writes to the console */
-    // TODO: address this part in the handout: 'Your code to write to the console 
-    //      should write all of buffer in one call to putbuf(), at least as long 
-    //      as size is not bigger than a few hundred bytes.'
-    putbuf(buffer, length); 
+    /* Write to the console. Should write all of buffer in one call to putbuf(),
+       at least as long as size is not bigger than a few hundred bytes. */
+    char *buf_tmp = buffer;
+    unsigned bytes_left = length;
+    while (bytes_left > MAX_PUTBUF_SIZE) {
+      putbuf(buf_tmp, MAX_PUTBUF_SIZE);
+      buf_tmp += MAX_PUTBUF_SIZE;
+      bytes_left -= MAX_PUTBUF_SIZE;
+    }
+    putbuf(buf_tmp, bytes_left); 
     return;
   }
   

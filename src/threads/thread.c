@@ -319,6 +319,12 @@ thread_donate_priority(struct thread* t_donor)
     /* add donation elem for from to rec_t's recvd_donations */
     struct donation_elem* cur_elem = (struct donation_elem*) malloc(
                                       sizeof(struct donation_elem));
+
+    if(cur_elem == NULL)
+    {
+      return;
+    }
+
     cur_elem->l = t_rec_prev->lock_waiting_for;
     cur_elem->elem.prev = NULL;
     cur_elem->elem.next = NULL;
@@ -371,6 +377,12 @@ thread_add_file_descriptor_elem(struct file *fi)
   struct thread* cur = thread_current();
   struct file_descriptor_elem* fd_elem =
       (struct file_descriptor_elem*) malloc( sizeof(struct file_descriptor_elem));
+
+  if(fd_elem == NULL) 
+  {
+    exit_current_process(-1);
+  }
+  
   fd_elem->fd = cur->next_fd++;
   fd_elem->f = fi;
   list_push_front (&cur->file_descriptors, &fd_elem->elem);

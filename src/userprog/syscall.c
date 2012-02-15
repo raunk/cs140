@@ -164,6 +164,7 @@ get_nth_parameter(void* esp, int param_num)
   return param;
 }
 
+#define MAX_FILE_NAME 14
 
 /* Handle a system call for create. This gets the size
  * and file name, and checks all pointers involved. We
@@ -179,7 +180,7 @@ static void syscall_create(struct intr_frame * f)
 
   int len = strlen(fname);
 
-  if(len < 1 || len > 14){
+  if(len < 1 || len > MAX_FILE_NAME){
     f->eax = false; 
     return;
   }
@@ -188,6 +189,9 @@ static void syscall_create(struct intr_frame * f)
   f->eax = result; 
 }
 
+/* Dispatch method when we need to handle a system call.
+ * We read the system call number and call the proper
+ * method, and pass it the interrupt frame. */
 static void
 syscall_handler (struct intr_frame *f) 
 {
@@ -224,6 +228,10 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
+/* Exit the current process with status STATUS. Set the exit
+ * status of this thead. Also clean up file resources and 
+ * singal this thread is dying to any waiting threads using
+ * sema_up. */
 void
 exit_current_process(int status)
 {
@@ -241,6 +249,9 @@ exit_current_process(int status)
   thread_exit();
 }
 
+
+/* Exit system call. Set the exit status and call
+ * exit_current_process for final cleanup */ 
 static void
 syscall_exit(struct intr_frame *f)
 {
@@ -251,6 +262,8 @@ syscall_exit(struct intr_frame *f)
   exit_current_process(status);
 }
 
+/* Exec system call. Take in the command line arguments
+ * and make a call to process_execute. */
 static void
 syscall_exec(struct intr_frame *f)
 {
@@ -261,6 +274,7 @@ syscall_exec(struct intr_frame *f)
   f->eax = process_execute(cmd_line);
 }
 
+/* Wait system call. Make a call to process wait */
 static void
 syscall_wait(struct intr_frame *f)
 {
@@ -317,6 +331,9 @@ syscall_write(struct intr_frame *f)
   f->eax = bytes_written;
 }
 
+/* Open system call. Get the filename and check that it is valid. Open
+ * the file and add the file descriptor element to the current thread
+ * for bookkeeping */
 static void
 syscall_open(struct intr_frame *f)
 {
@@ -333,6 +350,10 @@ syscall_open(struct intr_frame *f)
   f->eax = thread_add_file_descriptor_elem(fi)->fd;
 }
 
+/* Read system call. Read the file descriptor, buffer, and length.
+ * If we are using the special STDIN file descriptor, then read 
+ * from the keyboard. Otherwise make a call to the file system
+ * read function and return the bytes read */
 static void
 syscall_read(struct intr_frame *f)
 {
@@ -362,6 +383,8 @@ syscall_read(struct intr_frame *f)
   f->eax = bytes_read;
 }
 
+/* File size system call. Return the size of the file descriptor passed
+ * as the first parameter */
 static void
 syscall_filesize(struct intr_frame *f)
 {
@@ -377,6 +400,8 @@ syscall_filesize(struct intr_frame *f)
   f->eax = safe_file_length(fd_elem->f);
 }
 
+
+/* Remove a file from the file system */
 static void
 syscall_remove(struct intr_frame *f)
 {
@@ -388,6 +413,7 @@ syscall_remove(struct intr_frame *f)
   f->eax = result;
 }
 
+/* Seek to a specific point in a file given its file descriptor */
 static void
 syscall_seek(struct intr_frame *f)
 {
@@ -403,6 +429,7 @@ syscall_seek(struct intr_frame *f)
   safe_file_seek(fd_elem->f, position);
 }
 
+/* Report the current position for this file descriptor */
 static void
 syscall_tell(struct intr_frame *f)
 {
@@ -418,6 +445,8 @@ syscall_tell(struct intr_frame *f)
   f->eax = safe_file_tell(fd_elem->f);
 }
 
+/* Close the file given by the current file descriptor and remove it from 
+ * the file descriptor element list on a a thread */
 static void
 syscall_close(struct intr_frame *f)
 {

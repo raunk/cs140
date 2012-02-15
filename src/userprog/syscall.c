@@ -40,6 +40,8 @@ void safe_file_close (struct file *file);
 struct file *safe_filesys_open (const char *name);
 bool safe_filesys_remove (const char *name);
 
+#define MAX_PUTBUF_SIZE 256
+
 /* Lock used for accessing file system code. It is not safe for multiple
    thread to access the code in the /filesys directory. */
 static struct lock filesys_lock;
@@ -157,10 +159,11 @@ syscall_init (void)
 
 /* Returns the nth parameter to the system call given the stack pointer. */
 static void*
-get_nth_parameter(void* esp, int param_num)
+get_nth_parameter(void* esp, int param_num, int datasize)
 {
   void* param = esp + param_num * sizeof(char*);
   syscall_check_user_pointer(param);
+  syscall_check_user_pointer(param + datasize - 1);
   return param;
 }
 
@@ -173,8 +176,8 @@ get_nth_parameter(void* esp, int param_num)
  */
 static void syscall_create(struct intr_frame * f)
 {
-  unsigned initial_size = *(unsigned*)get_nth_parameter(f->esp, 2);
-  char* fname = *(char**)get_nth_parameter(f->esp, 1); 
+  unsigned initial_size = *(unsigned*)get_nth_parameter(f->esp, 2, sizeof(unsigned));
+  char* fname = *(char**)get_nth_parameter(f->esp, 1, sizeof(char*)); 
   syscall_check_user_pointer(fname);
 
   int len = strlen(fname);
@@ -192,8 +195,9 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   syscall_check_user_pointer (f->esp);
+  syscall_check_user_pointer (f->esp+sizeof(int*)-1);
   
-  // Read sys call number from location pointed to by stack pointer
+  /* Read sys call number from location pointed to by stack pointer */
   int sys_call_number = *((int*)f->esp);
   if(sys_call_number == SYS_EXIT) {
     syscall_exit(f);
@@ -245,7 +249,7 @@ static void
 syscall_exit(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int status = *(int*)get_nth_parameter(esp, 1);
+  int status = *(int*)get_nth_parameter(esp, 1, sizeof(int));
   
   f->eax = status;
   exit_current_process(status);
@@ -255,7 +259,7 @@ static void
 syscall_exec(struct intr_frame *f)
 {
   void* esp = f->esp;
-  char* cmd_line = *(char**)get_nth_parameter(esp, 1);
+  char* cmd_line = *(char**)get_nth_parameter(esp, 1, sizeof(char*));
   syscall_check_user_pointer (cmd_line);
 
   f->eax = process_execute(cmd_line);
@@ -265,12 +269,24 @@ static void
 syscall_wait(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int pid = *(int*)get_nth_parameter(esp, 1);
+  int pid = *(int*)get_nth_parameter(esp, 1, sizeof(int));
   
   f->eax = process_wait(pid);
 }
 
-#define MAX_PUTBUF_SIZE 256
+/* Check the bounds of a buffer that could possibly extend multiple
+   pages.  We need to check that each page in the block of pages 
+   overlapped by the buffer is valid. */
+static void
+syscall_check_buffer_bounds(char* buffer, unsigned length)
+{
+  unsigned length_check = length;
+  while(length_check >= PGSIZE) {
+    syscall_check_user_pointer(buffer+PGSIZE-1);
+    length_check -= PGSIZE;
+  }
+  syscall_check_user_pointer(buffer+length_check-1);
+}
 
 /* Write size bytes from buffer to the open file fd.  Return
    the number of bytes actually written, which may be less than
@@ -285,13 +301,13 @@ static void
 syscall_write(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
-  char* buffer = *(char**)get_nth_parameter(esp, 2);
-  unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
+  char* buffer = *(char**)get_nth_parameter(esp, 2, sizeof(char*));
+  unsigned length = *(unsigned*)get_nth_parameter(esp, 3, sizeof(unsigned));
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
-  syscall_check_user_pointer(buffer+length-1);
+  syscall_check_buffer_bounds(buffer, length);
   
   if (fd == STDOUT_FILENO) {
     /* Write to the console. Should write all of buffer in one call to putbuf(),
@@ -321,7 +337,7 @@ static void
 syscall_open(struct intr_frame *f)
 {
   void* esp = f->esp;
-  void* file = get_nth_parameter(esp, 1);
+  void* file = get_nth_parameter(esp, 1, sizeof(char*));
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname);
   
@@ -337,13 +353,13 @@ static void
 syscall_read(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
-  char* buffer = *(char**)get_nth_parameter(esp, 2);
-  unsigned length = *(unsigned*)get_nth_parameter(esp, 3);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
+  char* buffer = *(char**)get_nth_parameter(esp, 2, sizeof(char*));
+  unsigned length = *(unsigned*)get_nth_parameter(esp, 3, sizeof(unsigned));
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer);
-  syscall_check_user_pointer(buffer+length-1);
+  syscall_check_buffer_bounds(buffer, length);
   
   if (fd == STDIN_FILENO) {
     /* Fd 0 reads from the keyboard using input_getc() */
@@ -366,7 +382,7 @@ static void
 syscall_filesize(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
   
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
@@ -381,7 +397,7 @@ static void
 syscall_remove(struct intr_frame *f)
 {
   void* esp = f->esp;
-  char* fname = *(char**)get_nth_parameter(esp, 1);
+  char* fname = *(char**)get_nth_parameter(esp, 1, sizeof(char*));
   syscall_check_user_pointer(fname);
   
   bool result = safe_filesys_remove(fname);
@@ -392,8 +408,8 @@ static void
 syscall_seek(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
-  unsigned position = *(unsigned*)get_nth_parameter(esp, 2);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
+  unsigned position = *(unsigned*)get_nth_parameter(esp, 2, sizeof(unsigned));
   
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
@@ -407,7 +423,7 @@ static void
 syscall_tell(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
   
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
@@ -422,7 +438,7 @@ static void
 syscall_close(struct intr_frame *f)
 {
   void* esp = f->esp;
-  int fd = *(int*)get_nth_parameter(esp, 1);
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int));
   
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {

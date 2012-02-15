@@ -1,8 +1,7 @@
-		     +--------------------------+
-       	       	     |		CS 140		|
-		     | PROJECT 2: USER PROGRAMS	|
-		     | 	   DESIGN DOCUMENT     	|
-		     +--------------------------+
+S 140   |
+         | PROJECT 2: USER PROGRAMS |
+         |     DESIGN DOCUMENT      |
+         +--------------------------+
 
 ---- GROUP ----
 
@@ -21,14 +20,15 @@ Eric Conner <econner@stanford.edu>
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
-			   ARGUMENT PASSING
-			   ================
+         ARGUMENT PASSING
+         ================
 
 ---- DATA STRUCTURES ----
 
 >> A1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
 None.
 
 ---- ALGORITHMS ----
@@ -40,7 +40,8 @@ None.
 Arguments are parsed using the strtok_r function to break the file name
 string into tokens.  We first consume all of the tokens in the file name
 string once to determine where the first argument should be 
-placed.  We then restore the file name string to its original state by replacing
+placed.  We then restore the file name string to its original state by
+replacing
 all of the extra null terminators written to it with spaces.  We then
 tokenize the file name string one more time and place the strings in
 memory walking up the stack toward PHYS_BASE from where we determined
@@ -81,8 +82,8 @@ kernel.  If the shell first verifies the validity of the argument string, then
 there is a lot less chance for a user to pass a malicious string into the
 kernel that could crash it or allow access to a restricted part of the system.
 
-			     SYSTEM CALLS
-			     ============
+           SYSTEM CALLS
+           ============
 
 ---- DATA STRUCTURES ----
 
@@ -100,14 +101,32 @@ struct semaphore is_loaded_sem; /* Used to signal whether a process
                                    successfully loaded or not */
 struct semaphore is_dying;      /* Used to signal a parent process 
                                    that might be waiting on the current 
-								   process */
+                   process */
+
+struct file* executing_file;  /* The file that this thread is executing. */
+
+/* This holds the information for a file descriptor, including the number
+    pointer to file, and list element*/
+struct file_descriptor_elem                                                         
+{ 
+  int fd;
+  struct file *f;
+  struct list_elem elem;                                                            
+};                                                                                  
 
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
-
+The file descriptor numbers are only unique within a single process. Each
+thread struct maintains a counter named ‘next_fd’ that represents the file
+descriptor number to assign to the next file open call, and ‘next_fd’ is
+incremented after each assignment to make sure that the file descriptor numbers
+are unique for that thread. However, the file_descriptor_elem struct we use to
+pair file descriptor numbers with ‘struct file’ pointers are unique within the
+entire OS; a new file_descriptor_elem struct is allocated each time a file is
+opened. 
 
 ---- ALGORITHMS ----
 
@@ -126,8 +145,46 @@ user process is killed immediately.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+If a system call causes a full page to be copied, then the greatest
+number of inspections is 2 and the least number is 2.  The only time 
+a full page of memory could be copied into the kernel is when reading
+or writing from a contiguous buffer.  In these cases, we must check 
+the start and end of the buffer to ensure they are valid, mapped
+locations and this will incur two calls to pagedir_get_page().
+
+If a system call only copies 2 bytes of data then the greatest number 
+of calls is 2 and the least again is 2.  It is always possible for the number
+of bytes read from a location to overlap a page boundary so we must always
+check to ensure that the beginning and end of the contiguous section
+of bytes we want to copy are mapped.  It is likely that these 2 bytes fit
+on the same page, but we would still need to call pagedir_get_page()
+to be sure.
+
+If we had implemented handling unmapped pointers by modifying
+the page fault handler, then the number of calls to pagedir_get_page()
+would be 0.
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+Our implementation of the wait system call relies on a semaphore
+added to each thread that is upped whenever that thread is terminated.  When a 
+parent thread goes to wait on one of its children, it tries to down this 
+semaphore.  If it cannot down the child’s semaphore then it will sleep until
+the child thread makes the semaphore available when it exits.  If the child
+thread
+has already exited, then the semaphore has already been upped and the parent
+can down it immediately (so a parent can wait on a child that has already
+exited).  
+
+We also ensure that a thread only waits on one of its direct children and that
+a thread cannot
+wait on another thread twice.  To do this we added a child list to each thread
+as well as a variable that holds the tid of the thread the current thread waits
+on.
+If the thread that we attempt to wait on is not in the current thread’s child
+list
+or if the current thread already waits on another tid we return -1 immediately.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -143,12 +200,39 @@ user process is killed immediately.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+We created several utility functions to access the parameters of a system call
+function as well as to check user pointers. By having the different system
+calls all use these functions we were able to limit the amount of repeated
+error-checking code. We also have one function exit_current_process() which
+handles the cleanup for the threads resources, and call that function on
+failure to make sure all of the necessary state is reset.
+
+For example, if the user is trying to make a write system call, but the buffer
+is an invalid pointer, then when we check it with our method
+syscall_check_user_pointer, we will discover it is invalid and exit the current
+process and do some clean up. The rest of the write system call does not need
+to worry about error checking as that work has been dispatched to this helper
+method.
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+We use a semaphore in each thread.  When a thread either successfully 
+loads or fails to load its executable, the thread ups this semaphore to
+indicate that its loaded status is now known.  The caller of “exec,” after
+calling thread_create, tries to down this semaphore and will not be able
+to until the created thread ups it.  
+
+The load status is passed back in the child thread's exit status field.  If the
+child 
+fails to load its executable then it sets its own exit status to -1 just before 
+upping the semaphore.  The caller of “exec” then checks if the exit status of
+the child is
+-1 and, if so, it knows that the child failed to load.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -157,19 +241,87 @@ user process is killed immediately.
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+Proper synchronization and Avoiding Race Conditions--
+
+In our implementation the only piece of data that is shared between a parent
+process and a child process is the exit status of the child (i.e. it is the
+only piece of data that is both read and written by both threads).  We do store
+a list of child threads as well as a pointer to the thread’s parent in each
+thread, but each of these pieces of data is only ever read / written by the
+parent.
+
+Before C exits: P will not read the exit status of C until it successfully
+downs thread C’s semaphore which indicates that thread C has exited.  C does
+not up the semaphore until after it has set its exit status so we can be sure
+that, in any possible interleaving, P will always read the exit status after C
+has completed setting it.
+
+After C exits: If C has already exited then it has already set its exit status
+and upped the semaphore.  P can down the semaphore immediately and will read
+the correct exit status in C.
+
+Freeing of Resources--
+
+To ensure that we can still read child exit statuses successfully, the child
+process thread structs are not destroyed until either they have been orphaned
+and exit or their parent process exits and they have already exited.  Any time
+a thread exits, we check if any of its children are still running.  For those
+still running, we indicate that they have been orphaned by setting their parent
+pointer to null.  For those that have already exited we free all of their
+resources right there.  Their parent is exiting so we know that we will not
+need them around anymore.  We then check if the current thread has been
+orphaned (by checking if it has a null parent pointer).  If so we free all of
+its resources, no other thread will need to read its exit status at this point
+so we can destroy its thread struct.
+
+If P terminates without waiting before C exits then P has orphaned C and C’s
+resources will get freed when C exits.  If P terminates without waiting after C
+exits then C’s resources will get freed when P exits.  There are no special
+cases in this design.
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+Checking that user provided pointers were valid and mapped seemed to be the
+best way to prevent errors in the kernel.  To us, this kind of approach goes
+along with the idea of white listing versus black listing.  Instead of trying
+to define what the user program cannot do, we instead specify the limited set
+of values it is allowed to provide.  That is, a user pointer must point to a
+valid, mapped region in the user pool of memory.  If it does not, then we
+assume that something has gone wrong in the user program or something malicious
+is going on and kill the user program right away.  We also found this approach
+much simpler to implement, understand, and communicate than modifying the page
+handler.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
+
+Our design for keeping track of file descriptors kept one list per thread. The
+advantage of this design was that it was very simple to look up file descriptor
+elements given a thread since lists are simple and do not have much overhead.
+
+Another design decision we made was to use a counter to set the file
+descriptors rather than simply using the struct file pointers. We found this
+useful in debugging because the file descriptor numbers would be ordered by the
+point in time at which their associated files were opened. If we were to just
+use the pointer values, the file descriptor numbers would seem arbitrary to the
+developer.
+
+A possible disadvantage is that lookup in the list is linear as opposed to
+constant time. We could have used a hash map instead of a list, as an
+alternative implementation, but we figured that the number of file descriptors
+for each thread would be small enough such that there would not be significant
+performance differences.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
 
-			   SURVEY QUESTIONS
-			   ================
+We did not change the mapping.
+
+         SURVEY QUESTIONS
+         ================
 
 Answering these questions is optional, but it will help us improve the
 course in future quarters.  Feel free to tell us anything you

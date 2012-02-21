@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <list.h>
+#include "threads/palloc.h"
 
 /* Definitions of page frame */
 struct frame {
@@ -15,6 +16,7 @@ struct frame {
 };
 
 void frame_init(size_t user_page_limit);
+void* frame_get_page(enum palloc_flags flags, void *uaddr);
 
 #endif /* vm/frame.h */
 

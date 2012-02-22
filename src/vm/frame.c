@@ -1,4 +1,6 @@
 #include "vm/frame.h"
+#include "threads/malloc.h"
+#include "threads/thread.h"
 #include <debug.h>
 
 static struct list frame_list;

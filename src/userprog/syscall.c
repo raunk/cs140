@@ -5,6 +5,7 @@
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "userprog/exception.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -163,6 +164,11 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
 
   // If it looks like a stack pointer, give them a new
   // stack page and return 
+  if(smells_like_stack_pointer(f->esp, ptr))
+    {
+      install_stack_page(pg_round_down(ptr));
+      return;
+    }
 
  
   // Pointer is invalid if we get here

@@ -123,9 +123,16 @@ bool
 smells_like_stack_pointer(void* esp, void* ptr)
 {
     void *upage = pg_round_down(ptr);
-    bool page_within_esp = esp > upage && esp < upage + PGSIZE;
+    
+    /*printf("esp %p\n", esp);
+    printf("ptr %p\n", ptr);
+    printf("upage %p\n", upage);
+   */ 
+    bool above_esp = ptr > esp && upage < PHYS_BASE;
+    //printf("Above esp %d\n", above_esp);
+
     bool right_below_esp = ptr < esp && ptr + 32 >= esp;
-    return page_within_esp || right_below_esp;
+    return above_esp || right_below_esp;
 }
 
 void

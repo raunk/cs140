@@ -8,6 +8,7 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "vm/frame.h"
 #include "vm/page.h"
@@ -188,6 +189,45 @@ page_fault (struct intr_frame *f)
      entry->status = PAGE_IN_MEM;
      
      return;
+  }else{
+//    printf("No supplemental entry.\n");
+  
+    void* esp = f->esp;
+//    printf("Stack %p\n", esp);
+//    printf("Fault %p\n", fault_addr);
+//    printf("Stack - 4 %p \n", esp - 4);
+//    printf("Stack - 32 %p \n", esp - 32);
+//    printf("Upage %p\n", upage);
+
+//    printf("Up + pgsz %p\n", upage + PGSIZE);
+
+    void* pg = pagedir_get_page( thread_current()->pagedir,
+                                upage); 
+//    printf("pg %p \n", pg);
+
+    bool page_within_esp = esp > upage && esp < upage + PGSIZE;
+//    printf("Page within %d\n", page_within_esp);
+    
+    bool right_below_esp = fault_addr < esp && fault_addr + 32 >= esp;
+//    printf("Right below %d\n", right_below_esp);
+
+    if(page_within_esp || right_below_esp)
+      {
+  //      printf("Think it is a stack page\n");
+        uint8_t *kpage = frame_get_page (PAL_USER, upage);
+        memset (kpage, 0, PGSIZE);
+     
+       /* Add the page to the process's address space. */
+       if (!install_page (upage, kpage, true)) 
+         {
+           frame_free_page (kpage);
+         }
+       else
+         {
+    //         printf("Installed\n");
+            return;
+         }
+      }
   }
 
   /* Count page faults. */

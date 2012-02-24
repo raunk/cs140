@@ -39,6 +39,7 @@
 #endif
 #ifdef VM
 #include "vm/frame.h"
+#include "vm/page.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -103,6 +104,7 @@ main (void)
   paging_init ();
 #ifdef VM
   frame_init (user_page_limit);
+  supp_page_init();
 #endif
 
   /* Segmentation. */

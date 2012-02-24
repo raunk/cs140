@@ -116,6 +116,32 @@ kill (struct intr_frame *f)
     }
 }
 
+
+/* Return whether or not the users pointer looks like it
+   is a stack pointer. */
+bool
+smells_like_stack_pointer(void* esp, void* ptr)
+{
+    void *upage = pg_round_down(ptr);
+    bool page_within_esp = esp > upage && esp < upage + PGSIZE;
+    bool right_below_esp = ptr < esp && ptr + 32 >= esp;
+    return page_within_esp || right_below_esp;
+}
+
+void
+install_stack_page(void* upage)
+{
+    uint8_t *kpage = frame_get_page (PAL_USER, upage);
+    memset (kpage, 0, PGSIZE);
+ 
+    /* Add the page to the process's address space. */
+    if (!install_page (upage, kpage, true)) 
+     {
+       frame_free_page (kpage);
+     }
+}
+
+
 /* Page fault handler.  This is a skeleton that must be filled in
    to implement virtual memory.  Some solutions to project 2 may
    also require modifying this code.
@@ -143,6 +169,8 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
+
+  printf("FAULT ON %p\n", fault_addr);
 
 
   /* NULL pointer dereferenced */
@@ -190,8 +218,14 @@ page_fault (struct intr_frame *f)
      
      return;
   }else{
-//    printf("No supplemental entry.\n");
-  
+    if(smells_like_stack_pointer(f->esp, fault_addr))
+      {
+        printf("Smells like a stack pointer\n");
+        install_stack_page(upage);
+        return;
+      }
+  }
+/* 
     void* esp = f->esp;
 //    printf("Stack %p\n", esp);
 //    printf("Fault %p\n", fault_addr);
@@ -213,11 +247,10 @@ page_fault (struct intr_frame *f)
 
     if(page_within_esp || right_below_esp)
       {
-  //      printf("Think it is a stack page\n");
+        printf("Think it is a stack page\n");
         uint8_t *kpage = frame_get_page (PAL_USER, upage);
         memset (kpage, 0, PGSIZE);
      
-       /* Add the page to the process's address space. */
        if (!install_page (upage, kpage, true)) 
          {
            frame_free_page (kpage);
@@ -227,8 +260,7 @@ page_fault (struct intr_frame *f)
     //         printf("Installed\n");
             return;
          }
-      }
-  }
+      } */
 
   /* Count page faults. */
   page_fault_cnt++;

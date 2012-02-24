@@ -129,7 +129,6 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
-  printf("page_fault CALLED\n");
   bool not_present;  /* True: not-present page, false: writing r/o page. */
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
@@ -144,7 +143,6 @@ page_fault (struct intr_frame *f)
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
-printf("Addr %p\n", fault_addr);
 
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
@@ -164,17 +162,12 @@ printf("Addr %p\n", fault_addr);
   void *upage = pg_round_down(fault_addr);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry) {
-   printf("GOT THE ADDRESS!\n");
-    printf("INFO: %d, %p, %d, %d\n", entry->status, entry->f, entry->off, entry->bytes_to_read);
     
     /* Get a page of memory. */
      uint8_t *kpage = frame_get_page (PAL_USER, upage);
      if (kpage == NULL) {
-       printf("exit here\n");
        //exit_current_process(-1); // TODO: check if we should be exiting process here
      }
-     
-     printf(" kpage %p\n", kpage);
 
      int bytes_to_read = entry->bytes_to_read;
      /* Load this page. Don't read from disk if bytes_to_read is zero. */
@@ -182,26 +175,18 @@ printf("Addr %p\n", fault_addr);
         safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
        {
          frame_free_page (kpage);
-         
-            printf("exit here 2\n");
         // exit_current_process(-1);
        }
      memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
      
-     printf("Set mem\n");
-
      /* Add the page to the process's address space. */
-     printf("UPAGE: %p\n", upage);
      if (!install_page (upage, kpage, entry->writable)) 
        {
          frame_free_page (kpage);
-         
-            printf("exit here 3\n");
         // exit_current_process(-1);
        }
      entry->status = PAGE_IN_MEM;
      
-     printf("page installed\n");
      return;
   }
 

@@ -1,6 +1,7 @@
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
 #include "vm/page.h"
+#include <stdbool.h>
 
 static unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
 static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
@@ -50,9 +51,13 @@ supp_page_lookup (tid_t tid, void *vaddr)
 }
 
 void
-supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read)
+supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
+    int off, int bytes_to_read, bool writable)
 {
   struct supp_page_entry *entry = (struct supp_page_entry*) malloc(sizeof(struct supp_page_entry));
+  if (entry == NULL) {
+    //TODO
+  }
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
@@ -67,5 +72,6 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, in
   entry_to_set->f = f;
   entry_to_set->off = off;
   entry_to_set->bytes_to_read = bytes_to_read;
+  entry_to_set->writable = writable;
 }
 

@@ -466,10 +466,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   return success;
 }
-
-/* load() helpers. */
-
-static bool install_page (void *upage, void *kpage, bool writable);
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -550,7 +546,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       // printf("INSERTING: %p, %d, %d, inode:%p\n", file, ofs, page_read_bytes, file_get_inode(file));
-      supp_page_insert_for_on_disk(thread_current()->tid, upage, file, ofs, page_read_bytes);
+      supp_page_insert_for_on_disk(thread_current()->tid, upage, file, ofs, page_read_bytes, writable);
       // /* Get a page of memory. */
       //       uint8_t *kpage = frame_get_page (PAL_USER, upage);
       //       if (kpage == NULL)
@@ -609,7 +605,7 @@ setup_stack (void **esp)
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool
+bool
 install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();

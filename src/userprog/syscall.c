@@ -239,6 +239,8 @@ syscall_handler (struct intr_frame *f)
 void
 exit_current_process(int status)
 {
+  printf("EXIT CUR PROCESS CALLED\n");
+  
   struct thread* cur = thread_current();
   
   cur->exit_status = status;

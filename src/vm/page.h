@@ -1,5 +1,6 @@
 #include "lib/kernel/hash.h"
 #include "threads/thread.h"
+#include <stdbool.h>
 
 /* Definitions of supplemental page table */
 enum page_status
@@ -23,6 +24,7 @@ struct supp_page_entry
    struct file *f;
    int off;
    int bytes_to_read;
+   bool writable;
    
    struct hash_elem hash_elem;
    
@@ -31,4 +33,5 @@ struct supp_page_entry
  
 void supp_page_init(void);
 struct supp_page_entry *supp_page_lookup (tid_t tid, void *vaddr);
-void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read);
+void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
+    int off, int bytes_to_read, bool writable);

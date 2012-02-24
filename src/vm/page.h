@@ -28,4 +28,6 @@ struct supp_page_entry
    
    struct supp_page_key key;
  };
+ 
+void supp_page_init(void);
 

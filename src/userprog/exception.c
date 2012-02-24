@@ -220,7 +220,7 @@ page_fault (struct intr_frame *f)
   }else{
     if(smells_like_stack_pointer(f->esp, fault_addr))
       {
-        printf("Smells like a stack pointer\n");
+       // printf("Smells like a stack pointer\n");
         install_stack_page(upage);
         return;
       }

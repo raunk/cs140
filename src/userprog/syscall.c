@@ -31,6 +31,7 @@ static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
+off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
 off_t safe_file_write (struct file *file, const void *buffer, off_t size);
 off_t safe_file_length (struct file *file);
 bool safe_filesys_create(const char* name, off_t initial_size);
@@ -55,6 +56,16 @@ safe_file_read (struct file *file, void *buffer, off_t size)
   off_t bytes_read;
   lock_acquire(&filesys_lock);
   bytes_read = file_read(file, buffer, size);
+  lock_release(&filesys_lock);
+  return bytes_read;
+}
+
+off_t
+safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) 
+{
+  off_t bytes_read;
+  lock_acquire(&filesys_lock);
+  bytes_read = file_read_at(file, buffer, size, file_ofs);
   lock_release(&filesys_lock);
   return bytes_read;
 }

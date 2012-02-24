@@ -9,4 +9,9 @@
 void exception_init (void);
 void exception_print_stats (void);
 
+
+bool smells_like_stack_pointer(void* esp, void* ptr);
+void install_stack_page(void* upage);
+
+
 #endif /* userprog/exception.h */

@@ -5,8 +5,6 @@
 static unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
 static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
   void *aux UNUSED);
-static struct supp_page_entry * supp_page_lookup (tid_t tid, void *vaddr);
-void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read);
   
 
 static struct hash supp_page_table;
@@ -39,7 +37,7 @@ supp_page_init(void)
   hash_init(&supp_page_table, supp_page_hash, supp_page_less, NULL);
 }
 
-static struct supp_page_entry *
+struct supp_page_entry *
 supp_page_lookup (tid_t tid, void *vaddr)
 {
   struct supp_page_entry entry;
@@ -51,7 +49,8 @@ supp_page_lookup (tid_t tid, void *vaddr)
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
 }
 
-void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read)
+void
+supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read)
 {
   struct supp_page_entry *entry = (struct supp_page_entry*) malloc(sizeof(struct supp_page_entry));
   entry->key.tid = tid;

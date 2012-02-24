@@ -30,4 +30,5 @@ struct supp_page_entry
  };
  
 void supp_page_init(void);
+struct supp_page_entry *supp_page_lookup (tid_t tid, void *vaddr);
 void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f, int off, int bytes_to_read);

@@ -6,6 +6,7 @@
 #include "threads/thread.h"
 #include "userprog/syscall.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -146,6 +147,14 @@ page_fault (struct intr_frame *f)
 
   if(fault_addr >= PHYS_BASE){
     exit_current_process(-1);
+  }
+  
+  /* Check supplemental page table for page info. */
+  // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));
+  struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, pg_round_down(fault_addr));
+  if (entry) {
+    // printf("GOT THE ADDRESS!\n");
+    // printf("INFO: %d, %p, %d, %d\n", entry->status, entry->f, entry->off, entry->bytes_to_read);
   }
 
   /* Turn interrupts back on (they were only off so that we could

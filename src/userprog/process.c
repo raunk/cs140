@@ -197,6 +197,7 @@ start_process (void *file_name_)
   
   palloc_free_page (file_name);
     
+  thread_setup_mmap(thread_current());
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

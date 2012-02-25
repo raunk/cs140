@@ -34,6 +34,8 @@ static void syscall_remove(struct intr_frame *f);
 static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
+static void syscall_mmap(struct intr_frame *f);
+static void syscall_munmap(struct intr_frame *f);
 
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
 off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
@@ -256,6 +258,10 @@ syscall_handler (struct intr_frame *f)
     syscall_tell(f);
   } else if(sys_call_number == SYS_CLOSE) {
     syscall_close(f);
+  } else if(sys_call_number == SYS_MMAP) {
+    syscall_mmap(f);
+  } else if(sys_call_number == SYS_MUNMAP) {
+    syscall_munmap(f);
   }
 }
 
@@ -292,6 +298,64 @@ syscall_exit(struct intr_frame *f)
   f->eax = status;
   exit_current_process(status);
 }
+
+
+static void 
+syscall_mmap(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  char* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
+  printf("Mmap %d %p\n", fd, addr);
+
+  // File descriptors 0 and 1 are not mappable
+  if(fd == 0 || fd == 1)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = -1;
+    return;
+  }
+
+  int length = file_length(fd_elem->f);
+  printf("Len %d\n", length); 
+
+  // Fail if the file had 0 bytes in length
+  if(length == 0)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  // Fail if addr is not page aligned
+  if((void*)addr != pg_round_down(addr))
+  {
+    f->eax = -1;
+    return;
+  }
+
+  // Fail if addr is 0
+  if(addr == 0)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  printf("Now map it!\n"); 
+  //off_t bytes_read = safe_file_read(fd_elem->f, buffer, length);
+  //f->eax = bytes_read;
+}
+
+static void 
+syscall_munmap(struct intr_frame *f)
+{
+
+}
+
 
 /* Exec system call. Take in the command line arguments
  * and make a call to process_execute. */

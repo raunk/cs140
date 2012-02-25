@@ -114,6 +114,28 @@ static void thread_add_to_queue(struct thread* t);
 
 static struct thread * thread_pop_max_priority_list(void);
 
+static unsigned mmap_hash_fn (const struct hash_elem *p_, void *aux UNUSED);
+static bool mmap_less_fn (const struct hash_elem *a_, const struct hash_elem *b_,
+  void *aux UNUSED);
+  
+static unsigned
+mmap_hash_fn(const struct hash_elem *p_, void *aux UNUSED)
+{
+  const struct mmap_elem* e = hash_entry(p_, struct mmap_elem, elem);
+  return hash_int(e->map_id);
+}
+
+static bool
+mmap_less_fn(const struct hash_elem *a_, const struct hash_elem *b_,
+           void *aux UNUSED)
+{
+  const struct mmap_elem *a = hash_entry(a_, struct mmap_elem, elem);
+  const struct mmap_elem *b = hash_entry(b_, struct mmap_elem, elem); 
+
+  return a->map_id < b->map_id;
+}
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -959,7 +981,9 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Initialize structures needed to support file descriptors */
   t->next_fd = 2;
   list_init(&t->file_descriptors);
-  
+ 
+
+ 
   /* Setup thread variables for signaling dying condition */
   list_init(&t->child_list);
   sema_init(&t->is_loaded_sem, 0);
@@ -978,6 +1002,13 @@ init_thread (struct thread *t, const char *name, int priority)
   
   
   list_push_back (&all_list, &t->allelem);
+}
+
+void thread_setup_mmap(struct thread* t)
+{
+  /* Initialize structures to support memory mapping */
+  t->next_map_id = 0;
+  hash_init(&t->map_hash, mmap_hash_fn, mmap_less_fn, NULL);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

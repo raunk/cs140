@@ -13,7 +13,8 @@ static struct hash supp_page_table;
 static unsigned
 supp_page_hash (const struct hash_elem *p_, void *aux UNUSED)
 {
-  const struct supp_page_entry *entry = hash_entry (p_, struct supp_page_entry, hash_elem);
+  const struct supp_page_entry *entry = hash_entry (p_, struct supp_page_entry, 
+                                                      hash_elem);
   return hash_bytes (&entry->key, sizeof(struct supp_page_key));
 }
 
@@ -21,8 +22,10 @@ static bool
 supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
            void *aux UNUSED)
 {
-  const struct supp_page_entry *a = hash_entry (a_, struct supp_page_entry, hash_elem);
-  const struct supp_page_entry *b = hash_entry (b_, struct supp_page_entry, hash_elem);
+  const struct supp_page_entry *a = hash_entry (a_, struct supp_page_entry, 
+                                                  hash_elem);
+  const struct supp_page_entry *b = hash_entry (b_, struct supp_page_entry, 
+                                                  hash_elem);
   
   const struct supp_page_key *a_key = &a->key;
   const struct supp_page_key *b_key = &b->key;
@@ -54,7 +57,8 @@ void
 supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
     int off, int bytes_to_read, bool writable)
 {
-  struct supp_page_entry *entry = (struct supp_page_entry*) malloc(sizeof(struct supp_page_entry));
+  struct supp_page_entry *entry = (struct supp_page_entry*) 
+                            malloc(sizeof(struct supp_page_entry));
   if (entry == NULL) {
     //TODO
   }

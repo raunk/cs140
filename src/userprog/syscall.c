@@ -59,9 +59,9 @@ off_t
 safe_file_read (struct file *file, void *buffer, off_t size) 
 {
   off_t bytes_read;
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   bytes_read = file_read(file, buffer, size);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return bytes_read;
 }
 
@@ -69,9 +69,9 @@ off_t
 safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) 
 {
   off_t bytes_read;
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   bytes_read = file_read_at(file, buffer, size, file_ofs);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return bytes_read;
 }
 
@@ -79,9 +79,9 @@ off_t
 safe_file_write (struct file *file, const void *buffer, off_t size)
 {
   off_t bytes_written;
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   bytes_written = file_write (file, buffer, size);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return bytes_written;
 }
 
@@ -89,62 +89,62 @@ off_t
 safe_file_length (struct file *file)
 {
   off_t num_bytes;
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   num_bytes = file_length(file);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return num_bytes;
 }
 
 bool 
 safe_filesys_create(const char* name, off_t initial_size)
 {
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   bool result = filesys_create(name, initial_size); 
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return result; 
 }
 
 void
 safe_file_seek (struct file *file, off_t new_pos)
 {
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   file_seek(file, new_pos);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
 }
 
 off_t
 safe_file_tell (struct file *file)
 {
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   off_t pos = file_tell(file);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return pos;
 }
 
 void
 safe_file_close (struct file *file)
 {
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   file_close(file);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
 }
 
 struct file *
 safe_filesys_open (const char *name)
 {
   struct file *f;
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   f = filesys_open(name);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return f;
 }
 
 bool
 safe_filesys_remove (const char *name)
 {
-  lock_acquire(&filesys_lock);
+  lock_acquire_if_not_held(&filesys_lock);
   bool result = filesys_remove(name);
-  lock_release(&filesys_lock);
+  lock_release_if_held(&filesys_lock);
   return result;
 }
 

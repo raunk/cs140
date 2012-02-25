@@ -171,6 +171,13 @@ page_fault (struct intr_frame *f)
 
 //  printf("FAULT ON %p\n", fault_addr);
 
+  /* Count page faults. */
+  page_fault_cnt++;
+
+  /* Determine cause. */
+  not_present = (f->error_code & PF_P) == 0;
+  write = (f->error_code & PF_W) != 0;
+  user = (f->error_code & PF_U) != 0;
 
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
@@ -190,12 +197,19 @@ page_fault (struct intr_frame *f)
   void *upage = pg_round_down(fault_addr);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry) {
-    
+     // If we page faulted on writing to a non-writeable location
+     // exit the process
+     if(write && !entry->writable)
+      {
+        exit_current_process(-1);
+      } 
+
     /* Get a page of memory. */
      uint8_t *kpage = frame_get_page (PAL_USER, upage);
      if (kpage == NULL) {
        //exit_current_process(-1); // TODO: check if we should be exiting process here
      }
+
 
      int bytes_to_read = entry->bytes_to_read;
      /* Load this page. Don't read from disk if bytes_to_read is zero. */
@@ -206,7 +220,8 @@ page_fault (struct intr_frame *f)
         // exit_current_process(-1);
        }
      memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
-     
+    
+ 
      /* Add the page to the process's address space. */
      if (!install_page (upage, kpage, entry->writable)) 
        {
@@ -228,13 +243,6 @@ page_fault (struct intr_frame *f)
      we should kill the process. */
   exit_current_process(-1);
 
-  /* Count page faults. */
-  page_fault_cnt++;
-
-  /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

@@ -229,6 +229,22 @@ lock_acquire (struct lock *lock)
   lock->holder = cur_thread;
 }
 
+void
+lock_acquire_if_not_held (struct lock *lock)
+{
+  if (!lock_held_by_current_thread(lock)) {
+    lock_acquire(lock);
+  }
+}
+
+void
+lock_release_if_held (struct lock *lock)
+{
+  if (lock_held_by_current_thread(lock)) {
+    lock_release(lock);
+  }
+}
+
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
    thread.

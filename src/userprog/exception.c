@@ -122,15 +122,7 @@ kill (struct intr_frame *f)
 bool
 smells_like_stack_pointer(void* esp, void* ptr)
 {
-    void *upage = pg_round_down(ptr);
-    
-    /*printf("esp %p\n", esp);
-    printf("ptr %p\n", ptr);
-    printf("upage %p\n", upage);
-   */ 
-    bool above_esp = ptr > esp && upage < PHYS_BASE;
-    //printf("Above esp %d\n", above_esp);
-
+    bool above_esp = ptr > esp && ptr < PHYS_BASE;
     bool right_below_esp = ptr < esp && ptr + 32 >= esp;
     return above_esp || right_below_esp;
 }
@@ -227,47 +219,14 @@ page_fault (struct intr_frame *f)
   }else{
     if(smells_like_stack_pointer(f->esp, fault_addr))
       {
-       // printf("Smells like a stack pointer\n");
         install_stack_page(upage);
         return;
       }
   }
-/* 
-    void* esp = f->esp;
-//    printf("Stack %p\n", esp);
-//    printf("Fault %p\n", fault_addr);
-//    printf("Stack - 4 %p \n", esp - 4);
-//    printf("Stack - 32 %p \n", esp - 32);
-//    printf("Upage %p\n", upage);
 
-//    printf("Up + pgsz %p\n", upage + PGSIZE);
-
-    void* pg = pagedir_get_page( thread_current()->pagedir,
-                                upage); 
-//    printf("pg %p \n", pg);
-
-    bool page_within_esp = esp > upage && esp < upage + PGSIZE;
-//    printf("Page within %d\n", page_within_esp);
-    
-    bool right_below_esp = fault_addr < esp && fault_addr + 32 >= esp;
-//    printf("Right below %d\n", right_below_esp);
-
-    if(page_within_esp || right_below_esp)
-      {
-        printf("Think it is a stack page\n");
-        uint8_t *kpage = frame_get_page (PAL_USER, upage);
-        memset (kpage, 0, PGSIZE);
-     
-       if (!install_page (upage, kpage, true)) 
-         {
-           frame_free_page (kpage);
-         }
-       else
-         {
-    //         printf("Installed\n");
-            return;
-         }
-      } */
+  /* If we had no page table information here, and it wasn't a stack pointer,
+     we should kill the process. */
+  exit_current_process(-1);
 
   /* Count page faults. */
   page_fault_cnt++;

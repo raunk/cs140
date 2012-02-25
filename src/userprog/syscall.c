@@ -157,9 +157,13 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
   if(is_user_vaddr(ptr)) {
     struct thread *t = thread_current ();
     // Check that memory has been mapped
-    if(pagedir_get_page (t->pagedir, ptr) != NULL) {
+    if(ptr != NULL) {
       return;
     }
+    
+    //if(pagedir_get_page (t->pagedir, ptr) != NULL) {
+    //  return;
+    //}
   }
 
   // If it looks like a stack pointer, give them a new
@@ -170,7 +174,6 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
       return;
     }
 
- 
   // Pointer is invalid if we get here
   exit_current_process(-1);
 }

@@ -40,6 +40,7 @@
 #ifdef VM
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -102,10 +103,6 @@ main (void)
   palloc_init (user_page_limit);
   malloc_init ();
   paging_init ();
-#ifdef VM
-  frame_init (user_page_limit);
-  supp_page_init();
-#endif
 
   /* Segmentation. */
 #ifdef USERPROG
@@ -133,6 +130,12 @@ main (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+#endif
+
+#ifdef VM
+  swap_init();
+  frame_init (user_page_limit);
+  supp_page_init();
 #endif
 
   printf ("Boot complete.\n");

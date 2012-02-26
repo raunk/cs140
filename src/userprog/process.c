@@ -566,14 +566,23 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
   
-  kpage = frame_get_page (PAL_USER | PAL_ZERO, ((uint8_t *) PHYS_BASE) - PGSIZE);
+  uint8_t *uaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  kpage = frame_get_page (PAL_USER | PAL_ZERO, uaddr);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      success = install_page (uaddr, kpage, true);
+      if (success) {
+        
+        /* Add this page to supp page table if not there */
+        struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, uaddr);
+        if(supp_pg == NULL) {
+          supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
+        }
+        
         *esp = PHYS_BASE;
-      else
+      } else {
         frame_free_page (kpage);
+      }
     }
   return success;
 }

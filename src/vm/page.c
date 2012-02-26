@@ -60,6 +60,8 @@ supp_page_init(void)
 struct supp_page_entry *
 supp_page_lookup (tid_t tid, void *vaddr)
 {
+  vaddr = pg_round_down(vaddr);
+  
   struct supp_page_entry entry;
   struct hash_elem *e;
 
@@ -67,6 +69,31 @@ supp_page_lookup (tid_t tid, void *vaddr)
   entry.key.vaddr = vaddr;
   e = hash_find (&supp_page_table, &entry.hash_elem);
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
+}
+
+void 
+supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
+{
+  struct supp_page_entry *entry = (struct supp_page_entry*) 
+                            malloc(sizeof(struct supp_page_entry));
+  if (entry == NULL) {
+    //TODO
+  }
+  entry->key.tid = tid;
+  entry->key.vaddr = vaddr;
+  struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
+  
+  struct supp_page_entry *entry_to_set = entry;
+  if (e != NULL) {
+    entry_to_set = hash_entry (e, struct supp_page_entry, hash_elem);
+    free(entry);
+  }
+  
+  entry_to_set->f = NULL;
+  entry_to_set->off = 0;
+  entry_to_set->bytes_to_read = 0;
+  entry_to_set->status = PAGE_IN_MEM;
+  entry_to_set->writable = true;
 }
 
 void
@@ -99,9 +126,11 @@ bool
 supp_page_bring_into_memory(void* addr, bool write)
 {
   void *upage = pg_round_down(addr);
+  printf("Attempting to lookup %p in supp page table..\n", upage);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry) {
     if(entry->status == PAGE_ON_DISK) {
+      printf("\n\n--------------- Reading page from disk ------------------------\n");
       // If we page faulted on writing to a non-writeable location
       // exit the process
       if(write && !entry->writable)
@@ -130,8 +159,32 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;
-      printf("Brought page %p into physical memory at %p\n", upage, kpage);
+      printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
+      printf("--------------- End reading page from disk ------------------------\n\n");
       return true; 
+      
+    } else if(entry->status == PAGE_IN_SWAP) {
+      printf("\n\n--------------- Reading out of swap ------------------------\n");
+      /* Get a page of memory. */
+      uint8_t *kpage = frame_get_page (PAL_USER, upage);
+      if (kpage == NULL) {
+       //exit_current_process(-1); // TODO: check if we should be exiting process here
+      }
+      
+      swap_read_from_slot(entry->swap_idx, kpage);
+      swap_free_slot(entry->swap_idx);
+      
+      /* Add the page to the process's address space. */
+      if (!install_page (upage, kpage, entry->writable)) 
+       {
+         frame_free_page (kpage);
+       }
+      entry->status = PAGE_IN_MEM;
+      
+      printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
+      printf("Page is valid up to %p\n", (upage+PGSIZE));
+      printf("--------------- End reading out of swap ------------------------\n\n");
+      return true;
     }
   }
   return false;

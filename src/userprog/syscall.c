@@ -42,7 +42,6 @@ static void syscall_munmap(struct intr_frame *f);
 void syscall_init (void);
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
 off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
-off_t safe_file_write (struct file *file, const void *buffer, off_t size);
 off_t safe_file_length (struct file *file);
 bool safe_filesys_create(const char* name, off_t initial_size);
 void safe_file_seek (struct file *file, off_t new_pos);
@@ -78,6 +77,17 @@ safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs)
   bytes_read = file_read_at(file, buffer, size, file_ofs);
   lock_release_if_held(&filesys_lock);
   return bytes_read;
+}
+
+off_t
+safe_file_write_at (struct file *file, const void *buffer, off_t size, 
+                      off_t file_ofs)
+{
+  off_t bytes_written;
+  lock_acquire_if_not_held(&filesys_lock);
+  bytes_written = file_write_at(file, buffer, size, file_ofs);
+  lock_release_if_held(&filesys_lock);
+  return bytes_written;
 }
 
 off_t
@@ -392,11 +402,21 @@ syscall_munmap(struct intr_frame *f)
   
   while(write_bytes > 0)
   {
+    struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+/*    printf("spe %p, file=%p, off=%d, to_read=%d, write=%d\n", sp_entry,
+      sp_entry->f, sp_entry->off, sp_entry->bytes_to_read, sp_entry->writable);
+*/
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
- //     printf("Page %p was dirty, write %d bytes to file at ofs=%d\n",
-   //         cur_addr, page_write_bytes, offset);
+ /*     printf("Page %p was dirty, write %d bytes to file at ofs=%d\n",
+            cur_addr, page_write_bytes, offset);
+*/
+ //     printf("Writing...\n");
+ //     printf("%s\n", cur_addr);
+
+      safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
+                         sp_entry->off); 
     }else{
   //    printf("not dirty\n");
     }  

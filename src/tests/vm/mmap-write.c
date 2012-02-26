@@ -7,6 +7,7 @@
 #include "tests/vm/sample.inc"
 #include "tests/lib.h"
 #include "tests/main.h"
+#include <stdio.h>
 
 #define ACTUAL ((void *) 0x10000000)
 
@@ -26,6 +27,14 @@ test_main (void)
 
   /* Read back via read(). */
   read (handle, buf, strlen (sample));
+/*
+  printf("Buffer contents:\n");
+  printf("%s\n", buf);
+
+
+  printf("Sample contents:\n");
+  printf("%s\n", sample);
+*/
   CHECK (!memcmp (buf, sample, strlen (sample)),
          "compare read data against written data");
   close (handle);

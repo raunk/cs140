@@ -114,6 +114,28 @@ static void thread_add_to_queue(struct thread* t);
 
 static struct thread * thread_pop_max_priority_list(void);
 
+static unsigned mmap_hash_fn (const struct hash_elem *p_, void *aux UNUSED);
+static bool mmap_less_fn (const struct hash_elem *a_, const struct hash_elem *b_,
+  void *aux UNUSED);
+  
+static unsigned
+mmap_hash_fn(const struct hash_elem *p_, void *aux UNUSED)
+{
+  const struct mmap_elem* e = hash_entry(p_, struct mmap_elem, elem);
+  return hash_int(e->map_id);
+}
+
+static bool
+mmap_less_fn(const struct hash_elem *a_, const struct hash_elem *b_,
+           void *aux UNUSED)
+{
+  const struct mmap_elem *a = hash_entry(a_, struct mmap_elem, elem);
+  const struct mmap_elem *b = hash_entry(b_, struct mmap_elem, elem); 
+
+  return a->map_id < b->map_id;
+}
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -959,7 +981,9 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Initialize structures needed to support file descriptors */
   t->next_fd = 2;
   list_init(&t->file_descriptors);
-  
+ 
+
+ 
   /* Setup thread variables for signaling dying condition */
   list_init(&t->child_list);
   sema_init(&t->is_loaded_sem, 0);
@@ -978,6 +1002,47 @@ init_thread (struct thread *t, const char *name, int priority)
   
   
   list_push_back (&all_list, &t->allelem);
+}
+
+/* Initialize structures to support memory mapping */
+void thread_setup_mmap(struct thread* t)
+{
+  t->next_map_id = 0;
+  hash_init(&t->map_hash, mmap_hash_fn, mmap_less_fn, NULL);
+}
+
+
+/* Add a memory map entry for this thread, and return back 
+ * the map_id number  */
+int 
+thread_add_mmap_entry(void* vaddr, int length)
+{
+  struct thread* cur = thread_current();
+  struct mmap_elem* map_elem = (struct mmap_elem*)malloc(sizeof(struct mmap_elem));
+
+  if(map_elem == NULL)
+  {
+    exit_current_process(-1);
+  }   
+
+  map_elem->vaddr = vaddr;
+  map_elem->length = length;
+  map_elem->map_id = cur->next_map_id++;
+  
+  // We don't need the hash element now
+  hash_insert(&cur->map_hash, &map_elem->elem);
+  return map_elem->map_id;   
+} 
+
+struct mmap_elem*
+thread_lookup_mmap_entry(int map_id)
+{
+  struct mmap_elem map_elem;
+  struct hash_elem* e;
+
+  map_elem.map_id = map_id;
+  e = hash_find(&thread_current()->map_hash, &map_elem.elem);
+  return e != NULL ? hash_entry(e, struct mmap_elem, elem): NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

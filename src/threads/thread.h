@@ -5,7 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
-
+#include <hash.h>
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -124,7 +124,10 @@ struct thread
 
     struct list file_descriptors;   /* List of open file descriptors */
     int next_fd;
-    
+   
+    struct hash map_hash;           /* Hash for memory mapping */
+    int next_map_id;
+ 
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
 
@@ -147,6 +150,15 @@ struct file_descriptor_elem
   struct list_elem elem;
 };
   
+struct mmap_elem
+{
+  int map_id; /* Mappping id number */
+  void* vaddr; /* Virtual address this was mapped at */
+  int length; /* Length of the file that was mapped in memory */
+  struct hash_elem elem; 
+};
+
+
 struct donation_elem
 {
   struct lock *l; /* Pointer to the lock that, when released, would
@@ -219,5 +231,10 @@ struct file_descriptor_elem* thread_get_file_descriptor_elem(int fd);
 void thread_compute_priorities(void);
 void thread_compute_load_average(void);
 void thread_compute_recent_cpu(void);
+
+// Memory mapping functions */
+void thread_setup_mmap(struct thread* t);
+int thread_add_mmap_entry(void* vaddr, int length);
+struct mmap_elem* thread_lookup_mmap_entry(int map_id);
 
 #endif /* threads/thread.h */

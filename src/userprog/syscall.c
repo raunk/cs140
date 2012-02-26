@@ -14,8 +14,10 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/thread.h"
 #include <string.h>
 #include "vm/page.h"
+#include "vm/frame.h"
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
                     struct intr_frame * f);
@@ -35,11 +37,12 @@ static void syscall_remove(struct intr_frame *f);
 static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
+static void syscall_mmap(struct intr_frame *f);
+static void syscall_munmap(struct intr_frame *f);
 
 void syscall_init (void);
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
 off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
-off_t safe_file_write (struct file *file, const void *buffer, off_t size);
 off_t safe_file_length (struct file *file);
 bool safe_filesys_create(const char* name, off_t initial_size);
 void safe_file_seek (struct file *file, off_t new_pos);
@@ -75,6 +78,17 @@ safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs)
   bytes_read = file_read_at(file, buffer, size, file_ofs);
   lock_release_if_held(&filesys_lock);
   return bytes_read;
+}
+
+off_t
+safe_file_write_at (struct file *file, const void *buffer, off_t size, 
+                      off_t file_ofs)
+{
+  off_t bytes_written;
+  lock_acquire_if_not_held(&filesys_lock);
+  bytes_written = file_write_at(file, buffer, size, file_ofs);
+  lock_release_if_held(&filesys_lock);
+  return bytes_written;
 }
 
 off_t
@@ -262,6 +276,10 @@ syscall_handler (struct intr_frame *f)
     syscall_tell(f);
   } else if(sys_call_number == SYS_CLOSE) {
     syscall_close(f);
+  } else if(sys_call_number == SYS_MMAP) {
+    syscall_mmap(f);
+  } else if(sys_call_number == SYS_MUNMAP) {
+    syscall_munmap(f);
   }
 }
 
@@ -298,6 +316,121 @@ syscall_exit(struct intr_frame *f)
   f->eax = status;
   exit_current_process(status);
 }
+
+
+static void 
+syscall_mmap(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  char* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
+
+  // File descriptors 0 and 1 are not mappable
+  if(fd == 0 || fd == 1)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+  if (!fd_elem) {
+    f->eax = -1;
+    return;
+  }
+
+  int length = file_length(fd_elem->f);
+
+  // Fail if the file had 0 bytes in length
+  if(length == 0)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  // Fail if addr is not page aligned
+  if((void*)addr != pg_round_down(addr))
+  {
+    f->eax = -1;
+    return;
+  }
+
+  // Fail if addr is 0
+  if(addr == 0)
+  {
+    f->eax = -1;
+    return;
+  }
+
+  int map_id = thread_add_mmap_entry(addr, length);
+  int read_bytes = length;
+  void* cur_page = (void*)addr;
+  int offset = 0;
+
+  // Save entries in the supplemental page table for this file
+  while(read_bytes > 0)
+  {
+    int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
+            fd_elem->f, offset, page_read_bytes, true);
+
+    read_bytes -= page_read_bytes;
+    cur_page += PGSIZE;
+    offset += page_read_bytes;
+  } 
+
+  f->eax = map_id; 
+}
+
+static void 
+syscall_munmap(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  int map_id = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  struct mmap_elem* map_elem = thread_lookup_mmap_entry(map_id);
+  // Go through range of addresses for this memory mapped file
+  // and free those virtual pages. We should write them back
+  // to the file if they have changed. 
+  void* cur_addr = map_elem->vaddr;
+  int write_bytes = map_elem->length;
+
+  int cur_tid = thread_current()->tid;
+  int offset = 0; 
+  
+  while(write_bytes > 0)
+  {
+    struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+    int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
+    if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
+    {
+      safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
+                         sp_entry->off); 
+    }
+
+//    printf("entry status %d\n", sp_entry->status);
+    
+    // Remove supp page entry??
+    /*printf("Frame Free %p\n", cur_addr);
+    if(sp_entry->status == PAGE_IN_MEM)
+      {
+        printf("in mem... free\n");
+        frame_free_page(cur_addr);
+      }*/
+    supp_remove_entry(sp_entry);
+    write_bytes -= page_write_bytes;    
+    offset += PGSIZE;
+    cur_addr += PGSIZE;
+  }
+
+
+  // Tryin to unmap an invalid mapping
+  if(map_elem == NULL)
+  {
+    exit_current_process(-1);
+  }
+  
+  free(map_elem);
+}
+
 
 /* Exec system call. Take in the command line arguments
  * and make a call to process_execute. */

@@ -14,6 +14,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/thread.h"
 #include <string.h>
 #include "vm/page.h"
 
@@ -313,7 +314,6 @@ syscall_mmap(struct intr_frame *f)
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
   char* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
-  printf("Mmap %d %p\n", fd, addr);
 
   // File descriptors 0 and 1 are not mappable
   if(fd == 0 || fd == 1)
@@ -329,7 +329,6 @@ syscall_mmap(struct intr_frame *f)
   }
 
   int length = file_length(fd_elem->f);
-  printf("Len %d\n", length); 
 
   // Fail if the file had 0 bytes in length
   if(length == 0)
@@ -352,9 +351,24 @@ syscall_mmap(struct intr_frame *f)
     return;
   }
 
-  printf("Now map it!\n"); 
-  //off_t bytes_read = safe_file_read(fd_elem->f, buffer, length);
-  //f->eax = bytes_read;
+  int map_id = thread_add_mmap_entry(addr, length);
+  int read_bytes = length;
+  void* cur_page = (void*)addr;
+  int offset = 0;
+
+  // Save entries in the supplemental page table for this file
+  while(read_bytes > 0)
+  {
+    int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
+            fd_elem->f, offset, page_read_bytes, true);
+
+    read_bytes -= page_read_bytes;
+    cur_page += PGSIZE;
+    offset += page_read_bytes;
+  } 
+
+  f->eax = map_id; 
 }
 
 static void 

@@ -1014,7 +1014,8 @@ void thread_setup_mmap(struct thread* t)
 
 /* Add a memory map entry for this thread, and return back 
  * the map_id number  */
-int thread_add_mmap_entry(void* vaddr, int length)
+int 
+thread_add_mmap_entry(void* vaddr, int length)
 {
   struct thread* cur = thread_current();
   struct mmap_elem* map_elem = (struct mmap_elem*)malloc(sizeof(struct mmap_elem));
@@ -1028,9 +1029,21 @@ int thread_add_mmap_entry(void* vaddr, int length)
   map_elem->length = length;
   map_elem->map_id = cur->next_map_id++;
   
-  struct hash_elem* e = hash_insert(&cur->map_hash, &map_elem->elem);
+  // We don't need the hash element now
+  hash_insert(&cur->map_hash, &map_elem->elem);
   return map_elem->map_id;   
 } 
+
+struct mmap_elem*
+thread_lookup_mmap_entry(int map_id)
+{
+  struct mmap_elem map_elem;
+  struct hash_elem* e;
+
+  map_elem.map_id = map_id;
+  e = hash_find(&thread_current()->map_hash, &map_elem.elem);
+  return e != NULL ? hash_entry(e, struct mmap_elem, elem): NULL;
+}
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */

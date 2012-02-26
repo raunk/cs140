@@ -284,6 +284,57 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
+
+void
+unmap_file_helper(struct mmap_elem* map_elem)
+{
+  void* cur_addr = map_elem->vaddr;
+  int write_bytes = map_elem->length;
+
+  int cur_tid = thread_current()->tid;
+  int offset = 0; 
+  
+  while(write_bytes > 0)
+  {
+    struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+    int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
+    if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
+    {
+      safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
+                         sp_entry->off); 
+    }
+
+//    printf("entry status %d\n", sp_entry->status);
+    
+    // Remove supp page entry??
+    /*printf("Frame Free %p\n", cur_addr);
+    if(sp_entry->status == PAGE_IN_MEM)
+      {
+        printf("in mem... free\n");
+        frame_free_page(cur_addr);
+      }*/
+    supp_remove_entry(sp_entry);
+    write_bytes -= page_write_bytes;    
+    offset += PGSIZE;
+    cur_addr += PGSIZE;
+  }
+}
+
+void
+unmap_file(struct hash_elem* elem, void* aux UNUSED)
+{
+  struct mmap_elem* e = hash_entry(elem, struct mmap_elem, elem);
+  printf("Now unmap %d\n", e->map_id);  
+}
+
+static void
+handle_unmapped_files(void)
+{
+  struct thread* cur = thread_current();
+//  hash_apply(&cur->map_hash, unmap_file);
+  //hash_clear(&cur->map_hash, NULL);  
+}
+
 /* Exit the current process with status STATUS. Set the exit
  * status of this thead. Also clean up file resources and 
  * singal this thread is dying to any waiting threads using
@@ -294,6 +345,9 @@ exit_current_process(int status)
   struct thread* cur = thread_current();
   
   cur->exit_status = status;
+
+  /* Unmap any files that were not explicitly unmapped */
+  handle_unmapped_files();
 
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
@@ -388,47 +442,15 @@ syscall_munmap(struct intr_frame *f)
   void* esp = f->esp;
   int map_id = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
   struct mmap_elem* map_elem = thread_lookup_mmap_entry(map_id);
-  // Go through range of addresses for this memory mapped file
-  // and free those virtual pages. We should write them back
-  // to the file if they have changed. 
-  void* cur_addr = map_elem->vaddr;
-  int write_bytes = map_elem->length;
-
-  int cur_tid = thread_current()->tid;
-  int offset = 0; 
-  
-  while(write_bytes > 0)
-  {
-    struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
-    int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
-    if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
-    {
-      safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
-                         sp_entry->off); 
-    }
-
-//    printf("entry status %d\n", sp_entry->status);
-    
-    // Remove supp page entry??
-    /*printf("Frame Free %p\n", cur_addr);
-    if(sp_entry->status == PAGE_IN_MEM)
-      {
-        printf("in mem... free\n");
-        frame_free_page(cur_addr);
-      }*/
-    supp_remove_entry(sp_entry);
-    write_bytes -= page_write_bytes;    
-    offset += PGSIZE;
-    cur_addr += PGSIZE;
-  }
-
 
   // Tryin to unmap an invalid mapping
   if(map_elem == NULL)
   {
     exit_current_process(-1);
   }
-  
+
+
+  unmap_file_helper(map_elem);
   free(map_elem);
 }
 

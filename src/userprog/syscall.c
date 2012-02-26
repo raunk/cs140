@@ -374,7 +374,47 @@ syscall_mmap(struct intr_frame *f)
 static void 
 syscall_munmap(struct intr_frame *f)
 {
+  void* esp = f->esp;
+//  printf("Call to unmap\n");
+  int map_id = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+//  printf("map id %d\n", map_id);
+  struct mmap_elem* map_elem = thread_lookup_mmap_entry(map_id);
+//  printf("Mmap elem %p, id=%d, vaddr=%p, len=%d\n", map_elem,
+//            map_elem->map_id, map_elem->vaddr, map_elem->length); 
+  // Go through range of addresses for this memory mapped file
+  // and free those virtual pages. We should write them back
+  // to the file if they have changed. 
+  void* cur_addr = map_elem->vaddr;
+  int write_bytes = map_elem->length;
 
+  int cur_tid = thread_current()->tid;
+  int offset = 0; 
+  
+  while(write_bytes > 0)
+  {
+    int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
+    if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
+    {
+ //     printf("Page %p was dirty, write %d bytes to file at ofs=%d\n",
+   //         cur_addr, page_write_bytes, offset);
+    }else{
+  //    printf("not dirty\n");
+    }  
+    // Remove supp page entry??
+
+    write_bytes -= page_write_bytes;    
+    offset += PGSIZE;
+    cur_addr += PGSIZE;
+  }
+
+
+  // Tryin to unmap an invalid mapping
+  if(map_elem == NULL)
+  {
+    exit_current_process(-1);
+  }
+  
+  free(map_elem);
 }
 
 

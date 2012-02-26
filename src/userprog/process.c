@@ -583,7 +583,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
+  
   kpage = frame_get_page (PAL_USER | PAL_ZERO, ((uint8_t *) PHYS_BASE) - PGSIZE);
   if (kpage != NULL) 
     {

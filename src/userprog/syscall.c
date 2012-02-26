@@ -169,7 +169,6 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
        return;
     }
   }
-
   // If it looks like a stack pointer, give them a new
   // stack page and return 
   if(smells_like_stack_pointer(f->esp, ptr))

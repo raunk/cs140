@@ -40,9 +40,11 @@ static void syscall_close(struct intr_frame *f);
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
+static void unmap_file_helper(struct mmap_elem* map_elem);
 void syscall_init (void);
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
-off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
+off_t safe_file_read_at (struct file *file, void *buffer, off_t size, 
+      off_t file_ofs);
 off_t safe_file_length (struct file *file);
 bool safe_filesys_create(const char* name, off_t initial_size);
 void safe_file_seek (struct file *file, off_t new_pos);
@@ -285,7 +287,7 @@ syscall_handler (struct intr_frame *f)
 }
 
 
-void
+static void
 unmap_file_helper(struct mmap_elem* map_elem)
 {
   void* cur_addr = map_elem->vaddr;
@@ -304,7 +306,6 @@ unmap_file_helper(struct mmap_elem* map_elem)
                          sp_entry->off); 
     }
 
-//    printf("entry status %d\n", sp_entry->status);
     
     // Remove supp page entry??
     /*printf("Frame Free %p\n", cur_addr);

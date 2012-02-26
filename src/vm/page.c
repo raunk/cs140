@@ -19,6 +19,13 @@ static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *
 
 static struct hash supp_page_table;
 
+void
+supp_remove_entry(struct supp_page_entry* spe)
+{
+  hash_delete(&supp_page_table, &spe->hash_elem);
+}
+
+
 static unsigned
 supp_page_hash (const struct hash_elem *p_, void *aux UNUSED)
 {

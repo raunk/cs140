@@ -421,6 +421,7 @@ syscall_munmap(struct intr_frame *f)
   //    printf("not dirty\n");
     }  
     // Remove supp page entry??
+    supp_remove_entry(sp_entry);
 
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;

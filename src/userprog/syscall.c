@@ -291,8 +291,6 @@ syscall_handler (struct intr_frame *f)
 static void
 unmap_file_helper(struct mmap_elem* map_elem)
 {
-  printf("Unmap helper\n");
-  
   void* cur_addr = map_elem->vaddr;
   int write_bytes = map_elem->length;
 
@@ -305,7 +303,6 @@ unmap_file_helper(struct mmap_elem* map_elem)
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
-      printf("About to open...\n");
       struct file* f = file_open(map_elem->inode);
       safe_file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
@@ -357,7 +354,6 @@ exit_current_process(int status)
   /* Unmap any files that were not explicitly unmapped */
   if(!hash_empty(&cur->map_hash))
   {
-    printf("unmap because we are exiting\n");
     handle_unmapped_files();
   }
 
@@ -390,7 +386,7 @@ syscall_mmap(struct intr_frame *f)
 {
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
-  char* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
+  void* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
 
   // File descriptors 0 and 1 are not mappable
   if(fd == 0 || fd == 1)
@@ -427,6 +423,23 @@ syscall_mmap(struct intr_frame *f)
     f->eax = -1;
     return;
   }
+
+  struct hash_iterator i;
+  hash_first(&i, &thread_current()->map_hash);
+  while(hash_next(&i))
+    {
+      struct mmap_elem* e = hash_entry(hash_cur(&i), struct mmap_elem, elem);
+      void* map_end = pg_round_up(e->vaddr + e->length);
+
+      // This overlaps another mapping
+      if(addr >= e->vaddr && addr <= map_end)
+        {
+          f->eax = -1;
+          return;
+        }
+    }
+
+
 
   int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;

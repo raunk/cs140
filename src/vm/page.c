@@ -109,14 +109,12 @@ supp_page_bring_into_memory(void* addr, bool write)
         exit_current_process(-1);
       } 
 
-<<<<<<< HEAD
       /* Get a page of memory. */
-      printf("(supp)Got here...\n");
       uint8_t *kpage = frame_get_page (PAL_USER, upage);
       if (kpage == NULL) {
        //exit_current_process(-1); // TODO: check if we should be exiting process here
       }
-      printf("(supp)after kpage alloc...%p\n", kpage);
+
       int bytes_to_read = entry->bytes_to_read;
       /* Load this page. Don't read from disk if bytes_to_read is zero. */
       if (bytes_to_read > 0 &&
@@ -126,17 +124,14 @@ supp_page_bring_into_memory(void* addr, bool write)
        }
       memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
 
-      printf("(supp)got here install...\n");
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;
-      printf("SUCCESSFULLY BROUGHT INTO MEMORY!\n");
-      return true;
-    } else if(entry->status == PAGE_IN_SWAP) {
-      
+      printf("Brought page %p into physical memory at %p\n", upage, kpage);
+      return true; 
     }
   }
   return false;

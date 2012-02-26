@@ -4,6 +4,8 @@
 #include <debug.h>
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/swap.h"
 
 
 static struct list frame_list;
@@ -85,7 +87,6 @@ frame_free_page(void *page)
 static void
 frame_evict_page(void)
 {
-  printf("EVICTING!!!\n");
   /* Cycle pages in order circularly */
   while (1)
       { 
@@ -95,9 +96,6 @@ frame_evict_page(void)
           clock_ptr = list_begin (&frame_list);
         }
         
-        printf("CURRENT FRAME: %p\n", frm->user_address);
-        printf("ROUNDED FRAME: %p\n", pg_round_down(frm->user_address));
-        
         /* Has this page been referenced? */
         if(pagedir_is_accessed (frm->owner->pagedir, frm->user_address)) {
           /* Clear the reference bit */
@@ -105,23 +103,16 @@ frame_evict_page(void)
         } else {
           /* Is this page dirty? */
           if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
-            
-            //pagedir_set_dirty(frm->owner->pd, page, false);
+            // TODO
           } else {
-            printf("PHYS ADDR TO FREE: %p\n", frm->physical_address);
-            // Evict this shizz
-            int swap_idx = swap_write_to_slot(page);
-            if(swap_idx < 0) {
-              PANIC ("frame_evict_page: SWAP IS FULL.");
-            }
             
             struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
-            supp_pg->swap_idx = swap_idx;
-            supp_pg->status = PAGE_IN_SWAP;
+            // supp_pg->swap_idx = swap_idx;
+            supp_pg->status = PAGE_ON_DISK;
+            
+            printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
             
             frame_free_page(frm->physical_address);
-            
-            printf("FINISHED FREEING\n");
             return;
           }
         }

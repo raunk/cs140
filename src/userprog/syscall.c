@@ -291,6 +291,8 @@ syscall_handler (struct intr_frame *f)
 static void
 unmap_file_helper(struct mmap_elem* map_elem)
 {
+  printf("Unmap helper\n");
+  
   void* cur_addr = map_elem->vaddr;
   int write_bytes = map_elem->length;
 
@@ -303,23 +305,25 @@ unmap_file_helper(struct mmap_elem* map_elem)
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
-      safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
+      printf("About to open...\n");
+      struct file* f = file_open(map_elem->inode);
+      safe_file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
     }
-
-    
     // Remove supp page entry??
-    /*printf("Frame Free %p\n", cur_addr);
-    if(sp_entry->status == PAGE_IN_MEM)
+    /*if(sp_entry->status == PAGE_IN_MEM)
       {
         printf("in mem... free\n");
         frame_free_page(cur_addr);
-      }*/
+      } */
     supp_remove_entry(sp_entry);
+
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;
     cur_addr += PGSIZE;
   }
+  
+  hash_delete(&thread_current()->map_hash, &map_elem->elem); 
 }
 
 /* Callback function to unmap files on process exit */
@@ -349,8 +353,13 @@ exit_current_process(int status)
   
   cur->exit_status = status;
 
+
   /* Unmap any files that were not explicitly unmapped */
-  handle_unmapped_files();
+  if(!hash_empty(&cur->map_hash))
+  {
+    printf("unmap because we are exiting\n");
+    handle_unmapped_files();
+  }
 
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
@@ -419,7 +428,7 @@ syscall_mmap(struct intr_frame *f)
     return;
   }
 
-  int map_id = thread_add_mmap_entry(addr, length);
+  int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;
   void* cur_page = (void*)addr;
   int offset = 0;
@@ -451,7 +460,6 @@ syscall_munmap(struct intr_frame *f)
   {
     exit_current_process(-1);
   }
-
 
   unmap_file_helper(map_elem);
   free(map_elem);

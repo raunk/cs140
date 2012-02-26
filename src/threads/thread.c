@@ -1015,7 +1015,7 @@ void thread_setup_mmap(struct thread* t)
 /* Add a memory map entry for this thread, and return back 
  * the map_id number  */
 int 
-thread_add_mmap_entry(void* vaddr, int length)
+thread_add_mmap_entry(void* vaddr, int length, struct inode* inode)
 {
   struct thread* cur = thread_current();
   struct mmap_elem* map_elem = (struct mmap_elem*)malloc(sizeof(struct mmap_elem));
@@ -1025,6 +1025,7 @@ thread_add_mmap_entry(void* vaddr, int length)
     exit_current_process(-1);
   }   
 
+  map_elem->inode = inode;
   map_elem->vaddr = vaddr;
   map_elem->length = length;
   map_elem->map_id = cur->next_map_id++;

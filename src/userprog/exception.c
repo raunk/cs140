@@ -169,7 +169,7 @@ page_fault (struct intr_frame *f)
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
-//  printf("FAULT ON %p\n", fault_addr);
+  printf("FAULT ON %p\n", fault_addr);
 
   /* Count page faults. */
   page_fault_cnt++;

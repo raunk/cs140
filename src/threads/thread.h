@@ -156,6 +156,7 @@ struct mmap_elem
   void* vaddr; /* Virtual address this was mapped at */
   int length; /* Length of the file that was mapped in memory */
   struct hash_elem elem; 
+  struct inode* inode;
 };
 
 
@@ -234,7 +235,7 @@ void thread_compute_recent_cpu(void);
 
 // Memory mapping functions */
 void thread_setup_mmap(struct thread* t);
-int thread_add_mmap_entry(void* vaddr, int length);
+int thread_add_mmap_entry(void* vaddr, int length, struct inode* inode);
 struct mmap_elem* thread_lookup_mmap_entry(int map_id);
 
 #endif /* threads/thread.h */

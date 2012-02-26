@@ -331,12 +331,14 @@ unmap_file(struct hash_elem* elem, void* aux UNUSED)
   unmap_file_helper(e);
 }
 
-static void
+void
 handle_unmapped_files(void)
 {
   struct thread* cur = thread_current();
+  if(hash_empty(&cur->map_hash)) return;
+
   hash_apply(&cur->map_hash, unmap_file);
-  //hash_clear(&cur->map_hash, NULL);  
+  hash_clear(&cur->map_hash, NULL);  
 }
 
 /* Exit the current process with status STATUS. Set the exit
@@ -350,12 +352,8 @@ exit_current_process(int status)
   
   cur->exit_status = status;
 
-
   /* Unmap any files that were not explicitly unmapped */
-  if(!hash_empty(&cur->map_hash))
-  {
-    handle_unmapped_files();
-  }
+  handle_unmapped_files();
 
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);

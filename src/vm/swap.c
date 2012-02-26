@@ -30,11 +30,9 @@ swap_init(void)
 static int
 get_free_slot_index(void)
 {
-  printf("HERE?");
   int swap_size = bitmap_size(map);
   int idx;
   for (idx = 0; idx < swap_size; idx++) {
-    printf("IDX is curr: %d\n", idx);
     if (!bitmap_test(map, idx)) {
       bitmap_mark(map, idx);
       return idx;

@@ -68,7 +68,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
       clock_ptr = list_begin (&frame_list);
     }
   }
-  printf("Returning physical page %p\n", page);
+  printf("Returning physical page %p for user page %p\n", page, uaddr);
   return page;
 }
 
@@ -110,6 +110,7 @@ frame_evict_page(void)
     }
   printf("\n");
   printf("--------------- End Pages currently --------------------------\n");
+  printf("--------------- Begin clock algorithm ------------------------\n");
   /* Cycle pages in order circularly */
   while (1)
       { 
@@ -151,20 +152,26 @@ frame_evict_page(void)
           
           /* Write to swap and evict for now, no matter what */
           struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
-          printf("GOT HERE...%p\n", frm->physical_address);
+          if(supp_pg == NULL) {
+            printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
+          }
+          
           int swap_idx = swap_write_to_slot(frm->physical_address);
-          printf("AFTER WRITING TO SLOT...\n");
           supp_pg->swap_idx = swap_idx;
           supp_pg->status = PAGE_IN_SWAP;
           
           printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
           printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
+          printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
                       
           struct frame *frm1 = list_entry (clock_ptr, struct frame, elem);
           printf("Leaving clock pointer at %p\n", frm1->user_address);
           
           frame_free_page(frm->physical_address);
+          printf("--------------- End clock algorithm ------------------------\n");
+          return;
         }
 
       }
+      
 }

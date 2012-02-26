@@ -132,6 +132,12 @@ install_stack_page(void* upage)
 {
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
+    
+    /* Add this page to supp page table if not there */
+    struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
+    if(supp_pg == NULL) {
+      supp_page_insert_for_on_stack(thread_current()->tid, upage);
+    }
  
     /* Add the page to the process's address space. */
     if (!install_page (upage, kpage, true)) 

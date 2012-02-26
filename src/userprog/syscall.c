@@ -41,6 +41,7 @@ static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
 
 static void unmap_file_helper(struct mmap_elem* map_elem);
+void unmap_file(struct hash_elem* elem, void* aux UNUSED);
 void syscall_init (void);
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
 off_t safe_file_read_at (struct file *file, void *buffer, off_t size, 
@@ -321,18 +322,19 @@ unmap_file_helper(struct mmap_elem* map_elem)
   }
 }
 
+/* Callback function to unmap files on process exit */
 void
 unmap_file(struct hash_elem* elem, void* aux UNUSED)
 {
   struct mmap_elem* e = hash_entry(elem, struct mmap_elem, elem);
-  printf("Now unmap %d\n", e->map_id);  
+  unmap_file_helper(e);
 }
 
 static void
 handle_unmapped_files(void)
 {
   struct thread* cur = thread_current();
-//  hash_apply(&cur->map_hash, unmap_file);
+  hash_apply(&cur->map_hash, unmap_file);
   //hash_clear(&cur->map_hash, NULL);  
 }
 

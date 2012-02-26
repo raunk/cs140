@@ -12,7 +12,6 @@ static int swap_size;
 
 #define DATA_SIZE 32
 static uint32_t *slot_data;
-static int num_data;
 
 void
 swap_init(void)
@@ -20,7 +19,7 @@ swap_init(void)
   swap_block = block_get_role(BLOCK_SWAP);
   swap_size = block_size(swap_block);
   
-  num_data = 1 + swap_size / DATA_SIZE;
+  int num_data = 1 + swap_size / DATA_SIZE;
   slot_data = (uint32_t *) malloc(num_data);
   if (slot_data == NULL) {
     PANIC("Could not allocate memory for swap table data structure. ");

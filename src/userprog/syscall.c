@@ -468,8 +468,9 @@ syscall_mmap(struct intr_frame *f)
   while(read_bytes > 0)
   {
     int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    struct file* saved_file = file_reopen(fd_elem->f);
     supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
-            fd_elem->f, offset, page_read_bytes, true);
+            saved_file, offset, page_read_bytes, true);
 
     read_bytes -= page_read_bytes;
     cur_page += PGSIZE;

@@ -28,6 +28,9 @@ struct supp_page_entry
    int bytes_to_read;
    bool writable;
    
+   /* Page in swap */
+   int swap_idx;
+   
    struct hash_elem hash_elem;
    
    struct supp_page_key key;

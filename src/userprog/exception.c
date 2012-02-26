@@ -130,6 +130,7 @@ smells_like_stack_pointer(void* esp, void* ptr)
 void
 install_stack_page(void* upage)
 {
+  printf("(install)Got here...\n");
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
  
@@ -178,6 +179,12 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
 
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
@@ -195,6 +202,7 @@ page_fault (struct intr_frame *f)
   /* Check supplemental page table for page info. */
   // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));
   if(supp_page_bring_into_memory(fault_addr, write)) {
+    printf("RETURNING FROM PAGE FAULT....\n");
      return;
   } else {
     if(smells_like_stack_pointer(f->esp, fault_addr))

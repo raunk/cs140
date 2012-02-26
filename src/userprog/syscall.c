@@ -441,6 +441,15 @@ syscall_mmap(struct intr_frame *f)
     }
 
 
+  struct supp_page_entry* spe = supp_page_lookup(thread_current()->tid,
+                                                  addr);
+  // Error if we are writing over a location that is already in the 
+  // supplementary page table
+  if(spe != NULL)
+    {
+      f->eax = -1;
+      return;
+    }
 
   int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;

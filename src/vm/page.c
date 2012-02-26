@@ -89,6 +89,9 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
     free(entry);
   }
   
+  entry_to_set->f = NULL;
+  entry_to_set->off = 0;
+  entry_to_set->bytes_to_read = 0;
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
 }
@@ -123,6 +126,7 @@ bool
 supp_page_bring_into_memory(void* addr, bool write)
 {
   void *upage = pg_round_down(addr);
+  printf("Attempting to lookup %p in supp page table..\n", upage);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry) {
     if(entry->status == PAGE_ON_DISK) {

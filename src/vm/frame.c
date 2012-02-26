@@ -11,7 +11,7 @@
 static struct list frame_list;
 struct list_elem *clock_ptr;
 
-static void frame_evict_page(void);
+static struct frame* frame_find_eviction_candidate(void);
 
 void
 frame_init(size_t user_page_limit)
@@ -26,30 +26,43 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
   /* Ensure we are always getting from the user pool */
   uaddr = pg_round_down(uaddr);
   printf("UADDR: %p\n", uaddr);
-  flags = PAL_USER | flags;
+  flags = PAL_USER | PAL_ZERO;
   
   /* Attempt to allocate a page, if this comes back null then
      we need to evict */
   void *page = palloc_get_page(flags);
   if(page == NULL) {
-    frame_evict_page();
+    struct frame* frm = frame_find_eviction_candidate();
     
-    page = palloc_get_page(flags);
-    if(page == NULL) {
-      PANIC ("frame_get: WE RAN OUT OF PAGE SPACE. SHIT!\n");
+    /* Set this page to not present */
+    pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
+    
+    /* Write to swap */
+    struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
+    if(supp_pg == NULL) {
+      printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
     }
     
-    struct frame *frm = (struct frame*) malloc(sizeof(struct frame));
-    if(frm == NULL) {
-      PANIC ("frame_get: WE RAN OUT OF MALLOC SPACE. SHIT!\n");
+    int swap_idx = swap_write_to_slot(frm->physical_address);
+    if(swap_idx < 0) {
+      PANIC("OUT OF SWAP SPACE.\n");
     }
+    supp_pg->swap_idx = swap_idx;
+    supp_pg->status = PAGE_IN_SWAP;
     
-    frm->physical_address = page;
-    frm->user_address = uaddr;
-    frm->owner = thread_current ();
+    printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
+    printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
+    printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
     
     /* Add just before clock pointer */
-    list_insert (clock_ptr, &frm->elem);
+    //list_insert (clock_ptr, &frm->elem);
+    
+    memset (frm->physical_address, 0, PGSIZE);
+    
+    frm->owner = thread_current ();
+    frm->user_address = uaddr;
+    
+    page = frm->physical_address;
     
   } else {
     struct frame *frm = (struct frame*) malloc(sizeof(struct frame));
@@ -86,7 +99,6 @@ frame_free_page(void *page)
         /* Remove the struct frame from the frame list and
            free both the page and the struct frame */
         list_remove(e);
-        pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
         palloc_free_page(page);
         free(frm);
         
@@ -97,8 +109,8 @@ frame_free_page(void *page)
   PANIC ("frame_free: TRIED TO FREE PAGE NOT MAPPED IN FRAME LIST\n");
 }
 
-static void
-frame_evict_page(void)
+static struct frame*
+frame_find_eviction_candidate(void)
 {
   printf("--------------- Pages currently --------------------------\n");
   struct list_elem *e;
@@ -150,26 +162,13 @@ frame_evict_page(void)
           //             return;
           //           }
           
-          /* Write to swap and evict for now, no matter what */
-          struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
-          if(supp_pg == NULL) {
-            printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
-          }
+          //list_remove(&frm->elem);
           
-          int swap_idx = swap_write_to_slot(frm->physical_address);
-          supp_pg->swap_idx = swap_idx;
-          supp_pg->status = PAGE_IN_SWAP;
-          
-          printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
-          printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
-          printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
-                      
           struct frame *frm1 = list_entry (clock_ptr, struct frame, elem);
           printf("Leaving clock pointer at %p\n", frm1->user_address);
           
-          frame_free_page(frm->physical_address);
           printf("--------------- End clock algorithm ------------------------\n");
-          return;
+          return frm;
         }
 
       }

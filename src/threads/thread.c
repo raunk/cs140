@@ -1004,12 +1004,33 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
 }
 
+/* Initialize structures to support memory mapping */
 void thread_setup_mmap(struct thread* t)
 {
-  /* Initialize structures to support memory mapping */
   t->next_map_id = 0;
   hash_init(&t->map_hash, mmap_hash_fn, mmap_less_fn, NULL);
 }
+
+
+/* Add a memory map entry for this thread, and return back 
+ * the map_id number  */
+int thread_add_mmap_entry(void* vaddr, int length)
+{
+  struct thread* cur = thread_current();
+  struct mmap_elem* map_elem = (struct mmap_elem*)malloc(sizeof(struct mmap_elem));
+
+  if(map_elem == NULL)
+  {
+    exit_current_process(-1);
+  }   
+
+  map_elem->vaddr = vaddr;
+  map_elem->length = length;
+  map_elem->map_id = cur->next_map_id++;
+  
+  struct hash_elem* e = hash_insert(&cur->map_hash, &map_elem->elem);
+  return map_elem->map_id;   
+} 
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */

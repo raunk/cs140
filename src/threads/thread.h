@@ -234,4 +234,5 @@ void thread_compute_recent_cpu(void);
 
 // Memory mapping functions */
 void thread_setup_mmap(struct thread* t);
+int thread_add_mmap_entry(void* vaddr, int length);
 #endif /* threads/thread.h */

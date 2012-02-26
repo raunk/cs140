@@ -424,6 +424,7 @@ syscall_mmap(struct intr_frame *f)
     return;
   }
 
+  // Make sure we dont overlap any other mappings
   struct hash_iterator i;
   hash_first(&i, &thread_current()->map_hash);
   while(hash_next(&i))

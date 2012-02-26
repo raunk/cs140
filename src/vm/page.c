@@ -110,6 +110,9 @@ supp_page_bring_into_memory(void* addr, bool write)
 
     /* Get a page of memory. */
      uint8_t *kpage = frame_get_page (PAL_USER, upage);
+    
+  //   printf("Bring page %p into mem\n", upage);
+
      if (kpage == NULL) {
        //exit_current_process(-1); // TODO: check if we should be exiting process here
      }

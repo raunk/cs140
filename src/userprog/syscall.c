@@ -17,6 +17,7 @@
 #include "threads/thread.h"
 #include <string.h>
 #include "vm/page.h"
+#include "vm/frame.h"
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
                     struct intr_frame * f);
@@ -385,12 +386,8 @@ static void
 syscall_munmap(struct intr_frame *f)
 {
   void* esp = f->esp;
-//  printf("Call to unmap\n");
   int map_id = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
-//  printf("map id %d\n", map_id);
   struct mmap_elem* map_elem = thread_lookup_mmap_entry(map_id);
-//  printf("Mmap elem %p, id=%d, vaddr=%p, len=%d\n", map_elem,
-//            map_elem->map_id, map_elem->vaddr, map_elem->length); 
   // Go through range of addresses for this memory mapped file
   // and free those virtual pages. We should write them back
   // to the file if they have changed. 
@@ -403,26 +400,23 @@ syscall_munmap(struct intr_frame *f)
   while(write_bytes > 0)
   {
     struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
-/*    printf("spe %p, file=%p, off=%d, to_read=%d, write=%d\n", sp_entry,
-      sp_entry->f, sp_entry->off, sp_entry->bytes_to_read, sp_entry->writable);
-*/
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
- /*     printf("Page %p was dirty, write %d bytes to file at ofs=%d\n",
-            cur_addr, page_write_bytes, offset);
-*/
- //     printf("Writing...\n");
- //     printf("%s\n", cur_addr);
-
       safe_file_write_at(sp_entry->f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
-    }else{
-  //    printf("not dirty\n");
-    }  
-    // Remove supp page entry??
-    supp_remove_entry(sp_entry);
+    }
 
+//    printf("entry status %d\n", sp_entry->status);
+    
+    // Remove supp page entry??
+    /*printf("Frame Free %p\n", cur_addr);
+    if(sp_entry->status == PAGE_IN_MEM)
+      {
+        printf("in mem... free\n");
+        frame_free_page(cur_addr);
+      }*/
+    supp_remove_entry(sp_entry);
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;
     cur_addr += PGSIZE;

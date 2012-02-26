@@ -130,7 +130,6 @@ smells_like_stack_pointer(void* esp, void* ptr)
 void
 install_stack_page(void* upage)
 {
-  printf("(install)Got here...\n");
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
  

@@ -5,17 +5,21 @@
 
 static int get_free_slot_index(void);
 
-static struct block *swap_block;
+struct block *swap_block;
 
 /* Bitmap with SWAP_SIZE bits used to keep track of which swap slots
    are in-use. */
-static struct bitmap *map;
+struct bitmap *map;
 
 void
 swap_init(void)
 {
+  printf("INSIDE SWAP INIT!\n");
+  // Call block_register?
   swap_block = block_get_role(BLOCK_SWAP);
+  printf("Block device at: %p\n", swap_block);
   map = bitmap_create(block_size(swap_block));
+  printf("OR HERE!!!??\n");
   if (map == NULL) {
     PANIC("Could not allocate memory for swap table data structure. ");
   }
@@ -26,9 +30,11 @@ swap_init(void)
 static int
 get_free_slot_index(void)
 {
+  printf("HERE?");
   int swap_size = bitmap_size(map);
   int idx;
   for (idx = 0; idx < swap_size; idx++) {
+    printf("IDX is curr: %d\n", idx);
     if (!bitmap_test(map, idx)) {
       bitmap_mark(map, idx);
       return idx;

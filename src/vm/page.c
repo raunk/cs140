@@ -130,8 +130,30 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;
-      printf("Brought page %p into physical memory at %p\n", upage, kpage);
+      printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
       return true; 
+      
+    } else if(entry->status == PAGE_IN_SWAP) {
+      
+      /* Get a page of memory. */
+      uint8_t *kpage = frame_get_page (PAL_USER, upage);
+      if (kpage == NULL) {
+       //exit_current_process(-1); // TODO: check if we should be exiting process here
+      }
+      
+      swap_read_from_slot(entry->swap_idx, kpage);
+      swap_free_slot(entry->swap_idx);
+      
+      /* Add the page to the process's address space. */
+      if (!install_page (upage, kpage, entry->writable)) 
+       {
+         frame_free_page (kpage);
+       }
+      entry->status = PAGE_IN_MEM;
+      
+      printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
+      
+      return true;
     }
   }
   return false;

@@ -24,6 +24,7 @@ struct supp_page_entry
    
    /* Page on disk */
    struct file *f;
+   struct inode *i;
    int off;
    int bytes_to_read;
    bool writable;

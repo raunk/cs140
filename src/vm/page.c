@@ -89,7 +89,10 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   }
   
   entry_to_set->status = PAGE_ON_DISK;
-  entry_to_set->f = f;
+  entry_to_set->i = file_get_inode(f); 
+
+  printf("Set inode %p\n", entry_to_set->i);
+
   entry_to_set->off = off;
   entry_to_set->bytes_to_read = bytes_to_read;
   entry_to_set->writable = writable;
@@ -118,11 +121,23 @@ supp_page_bring_into_memory(void* addr, bool write)
      }
 
      int bytes_to_read = entry->bytes_to_read;
+      
+      printf("Bytes to read %d\n", bytes_to_read);
+
      /* Load this page. Don't read from disk if bytes_to_read is zero. */
-     if (bytes_to_read > 0 &&
-        safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
-       {
-         frame_free_page (kpage);
+     if (bytes_to_read > 0)
+      { 
+
+        printf("inode val=%p\n", entry->i);
+        struct file* f = file_open(entry->i);
+        
+        int bytes = safe_file_read_at (f, kpage, bytes_to_read, entry->off);
+        printf("Bytes read %d\n", bytes);
+        if( bytes != bytes_to_read)
+          { 
+            printf("Free page in SUP BRING IN\n");
+            frame_free_page (kpage);
+          }
        }
      memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
     

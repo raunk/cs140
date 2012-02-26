@@ -451,6 +451,16 @@ syscall_mmap(struct intr_frame *f)
       return;
     }
 
+
+  // Error if we are trying to map over a stack location
+  void* esp_page = pg_round_down(esp);
+  if(addr >= esp_page)
+    {
+      f->eax = -1;
+      return;
+    }
+
+
   int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;
   void* cur_page = (void*)addr;

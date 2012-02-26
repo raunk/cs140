@@ -15,6 +15,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include <string.h>
+#include "vm/page.h"
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
                     struct intr_frame * f);
@@ -35,6 +36,7 @@ static void syscall_seek(struct intr_frame *f);
 static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 
+void syscall_init (void);
 off_t safe_file_read (struct file *file, void *buffer, off_t size);
 off_t safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs);
 off_t safe_file_write (struct file *file, const void *buffer, off_t size);
@@ -157,13 +159,15 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
   if(is_user_vaddr(ptr)) {
     struct thread *t = thread_current ();
     // Check that memory has been mapped
-    if(ptr != NULL) {
+    
+    //return;
+    if(pagedir_get_page (t->pagedir, ptr) != NULL) {
       return;
     }
     
-    //if(pagedir_get_page (t->pagedir, ptr) != NULL) {
-    //  return;
-    //}
+    if(supp_page_bring_into_memory(ptr, false)) {
+       return;
+    }
   }
 
   // If it looks like a stack pointer, give them a new

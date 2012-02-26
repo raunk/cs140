@@ -6,6 +6,7 @@
 #include <round.h>
 #include <string.h>
 #include "tests/userprog/boundary.h"
+#include <stdio.h>
 
 static char dst[8192];
 

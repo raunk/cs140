@@ -290,8 +290,6 @@ syscall_handler (struct intr_frame *f)
 static void
 unmap_file_helper(struct mmap_elem* map_elem)
 {
-  printf("Unmap helper\n");
-  
   void* cur_addr = map_elem->vaddr;
   int write_bytes = map_elem->length;
 
@@ -304,7 +302,6 @@ unmap_file_helper(struct mmap_elem* map_elem)
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
-      printf("About to open...\n");
       struct file* f = file_open(map_elem->inode);
       safe_file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
@@ -333,12 +330,14 @@ unmap_file(struct hash_elem* elem, void* aux UNUSED)
   unmap_file_helper(e);
 }
 
-static void
+void
 handle_unmapped_files(void)
 {
   struct thread* cur = thread_current();
+  if(hash_empty(&cur->map_hash)) return;
+
   hash_apply(&cur->map_hash, unmap_file);
-  //hash_clear(&cur->map_hash, NULL);  
+  hash_clear(&cur->map_hash, NULL);  
 }
 
 /* Exit the current process with status STATUS. Set the exit
@@ -352,13 +351,8 @@ exit_current_process(int status)
   
   cur->exit_status = status;
 
-
   /* Unmap any files that were not explicitly unmapped */
-  if(!hash_empty(&cur->map_hash))
-  {
-    printf("unmap because we are exiting\n");
-    handle_unmapped_files();
-  }
+  handle_unmapped_files();
 
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
@@ -389,7 +383,7 @@ syscall_mmap(struct intr_frame *f)
 {
   void* esp = f->esp;
   int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
-  char* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
+  void* addr = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
 
   // File descriptors 0 and 1 are not mappable
   if(fd == 0 || fd == 1)
@@ -427,6 +421,43 @@ syscall_mmap(struct intr_frame *f)
     return;
   }
 
+  // Make sure we dont overlap any other mappings
+  struct hash_iterator i;
+  hash_first(&i, &thread_current()->map_hash);
+  while(hash_next(&i))
+    {
+      struct mmap_elem* e = hash_entry(hash_cur(&i), struct mmap_elem, elem);
+      void* map_end = pg_round_up(e->vaddr + e->length);
+
+      // This overlaps another mapping
+      if(addr >= e->vaddr && addr <= map_end)
+        {
+          f->eax = -1;
+          return;
+        }
+    }
+
+
+  struct supp_page_entry* spe = supp_page_lookup(thread_current()->tid,
+                                                  addr);
+  // Error if we are writing over a location that is already in the 
+  // supplementary page table
+  if(spe != NULL)
+    {
+      f->eax = -1;
+      return;
+    }
+
+
+  // Error if we are trying to map over a stack location
+  void* esp_page = pg_round_down(esp);
+  if(addr >= esp_page)
+    {
+      f->eax = -1;
+      return;
+    }
+
+
   int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;
   void* cur_page = (void*)addr;
@@ -436,8 +467,9 @@ syscall_mmap(struct intr_frame *f)
   while(read_bytes > 0)
   {
     int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    struct file* saved_file = file_reopen(fd_elem->f);
     supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
-            fd_elem->f, offset, page_read_bytes, true);
+            saved_file, offset, page_read_bytes, true);
 
     read_bytes -= page_read_bytes;
     cur_page += PGSIZE;

@@ -132,7 +132,6 @@ install_stack_page(void* upage)
 {
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
-    
     /* Add this page to supp page table if not there */
     struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
     if(supp_pg == NULL) {
@@ -175,7 +174,7 @@ page_fault (struct intr_frame *f)
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
-  printf("FAULT ON %p\n", fault_addr);
+//  printf("FAULT ON %p\n", fault_addr);
 
   /* Count page faults. */
   page_fault_cnt++;
@@ -185,13 +184,12 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
   
+  // printf ("Page fault at %p: %s error %s page in %s context.\n",
+  //           fault_addr,
+  //           not_present ? "not present" : "rights violation",
+  //           write ? "writing" : "reading",
+  //           user ? "user" : "kernel");
   
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
     exit_current_process(-1); 
@@ -208,7 +206,7 @@ page_fault (struct intr_frame *f)
   /* Check supplemental page table for page info. */
   // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));
   if(supp_page_bring_into_memory(fault_addr, write)) {
-    printf("RETURNING FROM PAGE FAULT AT %p\n", fault_addr);
+    //printf("RETURNING FROM PAGE FAULT AT %p\n", fault_addr);
      return;
   } else {
     if(smells_like_stack_pointer(f->esp, fault_addr))

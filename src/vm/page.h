@@ -28,8 +28,8 @@ struct supp_page_entry
    int bytes_to_read;
    bool writable;
    
-   /* Page in swap */
-   int swap_idx;
+   /* Sectors in swap */
+   int swap[8];
    
    struct hash_elem hash_elem;
    

@@ -2,10 +2,12 @@
 #include <kernel/bitmap.h>
 #include "devices/block.h"
 #include "vm/swap.h"
+#include "threads/synch.h"
 
 static int get_free_slot_index(void);
 
 struct block *swap_block;
+static struct lock swap_lock;
 
 /* Bitmap with SWAP_SIZE bits used to keep track of which swap slots
    are in-use. */
@@ -14,12 +16,11 @@ struct bitmap *map;
 void
 swap_init(void)
 {
-  printf("INSIDE SWAP INIT!\n");
-  // Call block_register?
   swap_block = block_get_role(BLOCK_SWAP);
-  printf("Block device at: %p\n", swap_block);
   map = bitmap_create(block_size(swap_block));
-  printf("OR HERE!!!??\n");
+  
+  lock_init (&swap_lock);
+
   if (map == NULL) {
     PANIC("Could not allocate memory for swap table data structure. ");
   }
@@ -44,22 +45,35 @@ get_free_slot_index(void)
 
 /* If a free swap slot is found, copies page data to the slot and 
    returns slot index. Else, returns -1. */
-int
-swap_write_to_slot(const void *page)
+bool
+swap_write_to_slot(const void *page, int swap_arr[8])
 {
-  int idx = get_free_slot_index();
-  if (idx >= 0) {
-    block_write(swap_block, idx, page); 
+  lock_acquire(&swap_lock);
+  int i;
+  for(i = 0; i < 8; i++) {
+    int idx = get_free_slot_index();
+    if (idx >= 0) {
+      block_write(swap_block, idx, page + i*BLOCK_SECTOR_SIZE);
+      swap_arr[i] = idx; 
+    } else {
+      return false;
+    }
   }
-  return idx;
+  lock_release(&swap_lock);
+  return true;
 }
 
 /* Copies the page data saved in the swap table at INDEX into BUFFER. */
 void
-swap_read_from_slot(swap_slot_t idx, void *buffer)
+swap_read_from_slot(int swap_arr[8], void *buffer)
 {
-  ASSERT(bitmap_test(map, idx));
-  block_read(swap_block, idx, buffer);
+  lock_acquire(&swap_lock);
+  int i;
+  for(i = 0; i < 8; i++) {
+    ASSERT(bitmap_test(map, swap_arr[i]));
+    block_read(swap_block, swap_arr[i], buffer + i*BLOCK_SECTOR_SIZE);
+  }
+  lock_release(&swap_lock);
 }
 
 /* Flags the slot at index INDEX as free. */
@@ -67,5 +81,7 @@ void
 swap_free_slot(swap_slot_t idx)
 {
   ASSERT(bitmap_test(map, idx));
+  lock_acquire(&swap_lock);
   bitmap_reset(map, idx);
+  lock_release(&swap_lock);
 }

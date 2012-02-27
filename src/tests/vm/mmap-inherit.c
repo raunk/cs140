@@ -6,6 +6,7 @@
 #include "tests/vm/sample.inc"
 #include "tests/lib.h"
 #include "tests/main.h"
+#include <stdio.h>
 
 void
 test_main (void)
@@ -22,9 +23,11 @@ test_main (void)
 
   /* Spawn child and wait. */
   CHECK ((child = exec ("child-inherit")) != -1, "exec \"child-inherit\"");
+
   quiet = true;
   CHECK (wait (child) == -1, "wait for child (should return -1)");
   quiet = false;
+
 
   /* Verify data again. */
   CHECK (!memcmp (actual, sample, strlen (sample)),

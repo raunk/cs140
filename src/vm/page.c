@@ -99,7 +99,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
 
 void
 supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
-    int off, int bytes_to_read, bool writable)
+    int off, int bytes_to_read, bool writable, bool is_mmapped)
 {
   struct supp_page_entry *entry = (struct supp_page_entry*) 
                             malloc(sizeof(struct supp_page_entry));
@@ -122,6 +122,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   entry_to_set->off = off;
   entry_to_set->bytes_to_read = bytes_to_read;
   entry_to_set->writable = writable;
+  entry_to_set->is_mmapped = is_mmapped;
 }
 
 bool 
@@ -155,7 +156,7 @@ supp_page_bring_into_memory(void* addr, bool write)
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
       memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
-
+      
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {

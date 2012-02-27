@@ -29,7 +29,6 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
 {
   /* Ensure we are always getting from the user pool */
   uaddr = pg_round_down(uaddr);
-  printf("UADDR: %p\n", uaddr);
   flags = PAL_USER | PAL_ZERO;
   
   /* Attempt to allocate a page, if this comes back null then
@@ -39,12 +38,10 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     lock_acquire (&frame_lock);
     
     struct frame* frm = frame_find_eviction_candidate();
-    printf("KPAGE: %d\n", *(int*)frm->physical_address);
     
     /* Set this page to not present */
     pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
     
-    printf("KPAGE: %d\n", *(int*)frm->physical_address);
     
     /* Write to swap */
     struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
@@ -59,8 +56,8 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     
     supp_pg->status = PAGE_IN_SWAP;
     
-    printf("KPAGE: %d\n", *(int*)frm->physical_address);
-    printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
+    // printf("KPAGE: %d\n", *(int*)frm->physical_address);
+    //     printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
     // printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
     //     printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
     //     
@@ -94,7 +91,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
       clock_ptr = list_begin (&frame_list);
     }
   }
-  printf("Returning physical page %p for user page %p\n", page, uaddr);
+  //printf("Returning physical page %p for user page %p\n", page, uaddr);
   return page;
 }
 
@@ -127,17 +124,17 @@ frame_free_page(void *page)
 static struct frame*
 frame_find_eviction_candidate(void)
 {
-  printf("--------------- Pages currently --------------------------\n");
-  struct list_elem *e;
-  for (e = list_begin (&frame_list); e != list_end (&frame_list);
-       e = list_next (e))
-    {
-      struct frame *frm = list_entry (e, struct frame, elem);
-      printf("%p -> ", frm->user_address);
-    }
-  printf("\n");
-  printf("--------------- End Pages currently --------------------------\n");
-  printf("--------------- Begin clock algorithm ------------------------\n");
+  // printf("--------------- Pages currently --------------------------\n");
+  //   struct list_elem *e;
+  //   for (e = list_begin (&frame_list); e != list_end (&frame_list);
+  //        e = list_next (e))
+  //     {
+  //       struct frame *frm = list_entry (e, struct frame, elem);
+  //       printf("%p -> ", frm->user_address);
+  //     }
+  //   printf("\n");
+  //   printf("--------------- End Pages currently --------------------------\n");
+  //   printf("--------------- Begin clock algorithm ------------------------\n");
   /* Cycle pages in order circularly */
   while (1)
       { 
@@ -150,7 +147,6 @@ frame_find_eviction_candidate(void)
         /* Has this page been referenced? */
         if(pagedir_is_accessed (frm->owner->pagedir, frm->user_address)) {
           /* Clear the reference bit */
-          printf("Clearing reference bit at %p\n", frm->user_address);
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
           //if(frm->user_address > 0xb0000000) continue;
@@ -181,9 +177,9 @@ frame_find_eviction_candidate(void)
           //list_remove(&frm->elem);
           
           struct frame *frm1 = list_entry (clock_ptr, struct frame, elem);
-          printf("Leaving clock pointer at %p\n", frm1->user_address);
+          //printf("Leaving clock pointer at %p\n", frm1->user_address);
           
-          printf("--------------- End clock algorithm ------------------------\n");
+          //printf("--------------- End clock algorithm ------------------------\n");
           return frm;
         }
 

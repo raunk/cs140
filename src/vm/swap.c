@@ -71,8 +71,6 @@ swap_read_from_slot(int swap_arr[8], void *buffer)
   int i;
   for(i = 0; i < 8; i++) {
     ASSERT(bitmap_test(map, swap_arr[i]));
-    printf("CURRENTLY READING INDEX: %d\n", swap_arr[i]);
-    printf("READING TO LOCATION: %p\n", (buffer + i*BLOCK_SECTOR_SIZE));
     block_read(swap_block, swap_arr[i], buffer + i*BLOCK_SECTOR_SIZE);
   }
   lock_release(&swap_lock);

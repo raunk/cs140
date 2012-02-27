@@ -127,11 +127,11 @@ bool
 supp_page_bring_into_memory(void* addr, bool write)
 {
   void *upage = pg_round_down(addr);
-  printf("Attempting to lookup %p in supp page table..\n", upage);
+  //printf("Attempting to lookup %p in supp page table..\n", upage);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry) {
     if(entry->status == PAGE_ON_DISK) {
-      printf("\n\n--------------- Reading page from disk ------------------------\n");
+      //printf("\n\n--------------- Reading page from disk ------------------------\n");
       // If we page faulted on writing to a non-writeable location
       // exit the process
       if(write && !entry->writable)
@@ -162,13 +162,13 @@ supp_page_bring_into_memory(void* addr, bool write)
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
       entry->status = PAGE_IN_MEM;
-      printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
-      printf("--------------- End reading page from disk ------------------------\n\n");
+      // printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
+      //       printf("--------------- End reading page from disk ------------------------\n\n");
       return true; 
       
     } else if(entry->status == PAGE_IN_SWAP) {
       
-      printf("\n\n--------------- Reading out of swap ------------------------\n");
+      //printf("\n\n--------------- Reading out of swap ------------------------\n");
       /* Get a page of memory. */
       uint8_t *kpage = frame_get_page (PAL_USER, upage);
       if (kpage == NULL) {
@@ -186,9 +186,9 @@ supp_page_bring_into_memory(void* addr, bool write)
        }
       entry->status = PAGE_IN_MEM;
       
-      printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
-      printf("Page is valid up to %p\n", (upage+PGSIZE));
-      printf("--------------- End reading out of swap ------------------------\n\n");
+      // printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
+      //       printf("Page is valid up to %p\n", (upage+PGSIZE));
+      //       printf("--------------- End reading out of swap ------------------------\n\n");
       return true;
     }
   }

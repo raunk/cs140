@@ -52,8 +52,6 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (fn_no_args, PRI_DEFAULT, start_process, fn_copy);
 
-//  printf("Created thread with tid=%d\n", tid);
-
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   sema_down(&thread_current ()->is_loaded_sem);

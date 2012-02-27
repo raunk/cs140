@@ -132,7 +132,6 @@ install_stack_page(void* upage)
 {
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
-    printf("INSTALLED A STACK PAGE!!!\n");
     /* Add this page to supp page table if not there */
     struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
     if(supp_pg == NULL) {

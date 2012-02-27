@@ -45,25 +45,36 @@ get_free_slot_index(void)
 
 /* If a free swap slot is found, copies page data to the slot and 
    returns slot index. Else, returns -1. */
-int
-swap_write_to_slot(const void *page)
+bool
+swap_write_to_slot(const void *page, int swap_arr[8])
 {
   lock_acquire(&swap_lock);
-  int idx = get_free_slot_index();
-  if (idx >= 0) {
-    block_write(swap_block, idx, page); 
+  int i;
+  for(i = 0; i < 8; i++) {
+    int idx = get_free_slot_index();
+    if (idx >= 0) {
+      block_write(swap_block, idx, page + i*BLOCK_SECTOR_SIZE);
+      swap_arr[i] = idx; 
+    } else {
+      return false;
+    }
   }
   lock_release(&swap_lock);
-  return idx;
+  return true;
 }
 
 /* Copies the page data saved in the swap table at INDEX into BUFFER. */
 void
-swap_read_from_slot(swap_slot_t idx, void *buffer)
+swap_read_from_slot(int swap_arr[8], void *buffer)
 {
-  ASSERT(bitmap_test(map, idx));
   lock_acquire(&swap_lock);
-  block_read(swap_block, idx, buffer);
+  int i;
+  for(i = 0; i < 8; i++) {
+    ASSERT(bitmap_test(map, swap_arr[i]));
+    printf("CURRENTLY READING INDEX: %d\n", swap_arr[i]);
+    printf("READING TO LOCATION: %p\n", (buffer + i*BLOCK_SECTOR_SIZE));
+    block_read(swap_block, swap_arr[i], buffer + i*BLOCK_SECTOR_SIZE);
+  }
   lock_release(&swap_lock);
 }
 

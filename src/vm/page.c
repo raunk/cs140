@@ -11,6 +11,7 @@
 #include "threads/vaddr.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 static unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
 static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
@@ -173,14 +174,12 @@ supp_page_bring_into_memory(void* addr, bool write)
       if (kpage == NULL) {
        //exit_current_process(-1); // TODO: check if we should be exiting process here
       }
-      
-      printf("Reading from index %d \n", entry->swap_idx);
-      
-      swap_read_from_slot(entry->swap_idx, kpage);
-      swap_free_slot(entry->swap_idx);
+          
+      swap_read_from_slot(entry->swap, kpage);
+      //swap_free_slot(entry->swap_idx);
       
       /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, true)) 
+      if (!install_page (upage, kpage, entry->writable)) 
        {
          printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);

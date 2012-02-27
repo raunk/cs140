@@ -52,19 +52,18 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
       printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
     }
     
-    int swap_idx = swap_write_to_slot((const void*)frm->physical_address);
-    if(swap_idx < 0) {
+    bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
+    if(!written) {
       PANIC("OUT OF SWAP SPACE.\n");
     }
     
-    supp_pg->swap_idx = swap_idx;
     supp_pg->status = PAGE_IN_SWAP;
     
     printf("KPAGE: %d\n", *(int*)frm->physical_address);
     printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
-    printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
-    printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
-    
+    // printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
+    //     printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
+    //     
     /* Add just before clock pointer */
     lock_release (&frame_lock);
     
@@ -154,7 +153,7 @@ frame_find_eviction_candidate(void)
           printf("Clearing reference bit at %p\n", frm->user_address);
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
-          if(frm->user_address > 0xb0000000) continue;
+          //if(frm->user_address > 0xb0000000) continue;
           /* Is this page dirty? */
           // if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
           //             // TODO begin writing to disk

@@ -104,8 +104,9 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   struct supp_page_entry *entry = (struct supp_page_entry*) 
                             malloc(sizeof(struct supp_page_entry));
   if (entry == NULL) {
-    //TODO
+    PANIC("supp_page_insert_for_on_disk: ran out of space");
   }
+  
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
@@ -176,7 +177,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       }
           
       swap_read_from_slot(entry->swap, kpage);
-      //swap_free_slot(entry->swap_idx);
+      swap_free_slot(entry->swap);
       
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 

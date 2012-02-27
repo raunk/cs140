@@ -128,44 +128,42 @@ frame_find_eviction_candidate(void)
         
         /* Has this page been referenced? */
         if(pagedir_is_accessed (frm->owner->pagedir, frm->user_address)) {
-          /* Clear the reference bit */
+          /* Clear the reference bit, try next frame. */
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
-          
+          /* Choose to evict this frame. */
           struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
           if(supp_pg == NULL) {
-            printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
+            PANIC("frame_find_eviction_candidate: COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n",
+                frm->user_address);
           }
+          
+          pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
           
           if(supp_pg->f != NULL) {
             /* It's a file page */
             if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
-              // TODO synchronization!!!
-              if(supp_pg->writable) {
-                //printf("Beginning write to file...\n");
-                safe_file_write_at(supp_pg->f, frm->physical_address, supp_pg->bytes_to_read, 
+              /* File page has been modified, so write back to disk. */
+              ASSERT(supp_pg->writable);
+              safe_file_write_at(supp_pg->f, frm->physical_address, supp_pg->bytes_to_read, 
                   supp_pg->off);
-              }
-              
-              //pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
-              
+              pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
             } else {
-              /* It's a file page that isn't dirty, we can just throw it out */
-              pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
-              supp_pg->status = PAGE_ON_DISK;
-              return frm;
+              /* It's a file page that isn't dirty, we can just throw it out. */
             }
+            
+            supp_pg->status = PAGE_ON_DISK;
           } else {
             /* It's a stack page, we must write it to swap */
-            pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
-
             bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
             if(!written) {
+              // TODO: kill process, free resources
               PANIC("OUT OF SWAP SPACE.\n");
             }
             supp_pg->status = PAGE_IN_SWAP;
-            return frm;
           }
+          
+          return frm;
         }
 
       }

@@ -78,10 +78,13 @@ swap_read_from_slot(int swap_arr[8], void *buffer)
 
 /* Flags the slot at index INDEX as free. */
 void
-swap_free_slot(swap_slot_t idx)
+swap_free_slot(int swap_arr[8])
 {
-  ASSERT(bitmap_test(map, idx));
   lock_acquire(&swap_lock);
-  bitmap_reset(map, idx);
+  int i;
+  for (i = 0; i < 8; i++) {
+    ASSERT(bitmap_test(map, swap_arr[i]));
+    bitmap_reset(map, swap_arr[i]);
+  }
   lock_release(&swap_lock);
 }

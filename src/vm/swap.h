@@ -1,5 +1,5 @@
-#ifndef VM_PAGE_H
-#define VM_PAGE_H
+#ifndef VM_SWAP_H
+#define VM_SWAP_H
 /* Definition of swap table */
 
 /* Index of a swap slot. */

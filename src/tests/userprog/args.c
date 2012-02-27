@@ -9,6 +9,9 @@ int
 main (int argc, char *argv[]) 
 {
   int i;
+  msg("ARGC at: %p", &argc);
+  msg("ARGV at: %p", &argv);
+  msg("I IS AT: %p", &i);
 
   test_name = "args";
  

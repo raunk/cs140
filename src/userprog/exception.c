@@ -132,7 +132,7 @@ install_stack_page(void* upage)
 {
     uint8_t *kpage = frame_get_page (PAL_USER, upage);
     memset (kpage, 0, PGSIZE);
-    
+    printf("INSTALLED A STACK PAGE!!!\n");
     /* Add this page to supp page table if not there */
     struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
     if(supp_pg == NULL) {
@@ -184,7 +184,6 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  
   
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,

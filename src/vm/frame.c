@@ -7,9 +7,12 @@
 #include "vm/page.h"
 #include "vm/swap.h"
 #include <stdio.h>
+#include <string.h>
 
 static struct list frame_list;
 struct list_elem *clock_ptr;
+
+static struct lock frame_lock;
 
 static struct frame* frame_find_eviction_candidate(void);
 
@@ -17,7 +20,8 @@ void
 frame_init(size_t user_page_limit)
 {
   clock_ptr = NULL;
-  list_init(&frame_list);
+  list_init (&frame_list);
+  lock_init (&frame_lock);
 }
 
 void*
@@ -32,10 +36,15 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
      we need to evict */
   void *page = palloc_get_page(flags);
   if(page == NULL) {
+    lock_acquire (&frame_lock);
+    
     struct frame* frm = frame_find_eviction_candidate();
+    printf("KPAGE: %d\n", *(int*)frm->physical_address);
     
     /* Set this page to not present */
     pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
+    
+    printf("KPAGE: %d\n", *(int*)frm->physical_address);
     
     /* Write to swap */
     struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
@@ -43,19 +52,21 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
       printf("COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n", frm->user_address);
     }
     
-    int swap_idx = swap_write_to_slot(frm->physical_address);
+    int swap_idx = swap_write_to_slot((const void*)frm->physical_address);
     if(swap_idx < 0) {
       PANIC("OUT OF SWAP SPACE.\n");
     }
+    
     supp_pg->swap_idx = swap_idx;
     supp_pg->status = PAGE_IN_SWAP;
     
+    printf("KPAGE: %d\n", *(int*)frm->physical_address);
     printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
     printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
     printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
     
     /* Add just before clock pointer */
-    //list_insert (clock_ptr, &frm->elem);
+    lock_release (&frame_lock);
     
     memset (frm->physical_address, 0, PGSIZE);
     
@@ -70,11 +81,14 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
       PANIC ("frame_get: WE RAN OUT OF MALLOC SPACE. SHIT!\n");
     }
     
+    frm->is_evictable = true;
     frm->physical_address = page;
     frm->user_address = uaddr;
     frm->owner = thread_current ();
     
+    lock_acquire (&frame_lock);
     list_push_front(&frame_list, &frm->elem);
+    lock_release (&frame_lock);
     
     /* Setup the pointer to be used in the clock algorithm */
     if(clock_ptr == NULL) {
@@ -88,6 +102,8 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
 void
 frame_free_page(void *page)
 {
+  lock_acquire (&frame_lock);
+  
   page = pg_round_down(page);
   /* Search frame_list for struct frame mapped to page */
   struct list_elem *e;
@@ -101,11 +117,11 @@ frame_free_page(void *page)
         list_remove(e);
         palloc_free_page(page);
         free(frm);
-        
+        lock_release (&frame_lock);
         return;
       }
     }
-  
+  lock_release (&frame_lock);
   PANIC ("frame_free: TRIED TO FREE PAGE NOT MAPPED IN FRAME LIST\n");
 }
 
@@ -138,6 +154,7 @@ frame_find_eviction_candidate(void)
           printf("Clearing reference bit at %p\n", frm->user_address);
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
+          if(frm->user_address > 0xb0000000) continue;
           /* Is this page dirty? */
           // if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
           //             // TODO begin writing to disk

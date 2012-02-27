@@ -536,8 +536,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
-  
-  // printf("\nENTERED LOAD SEGMENT!!!!!!!!!\nSDLFKJSLDFJLSDJF\n\n");
 
   safe_file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 

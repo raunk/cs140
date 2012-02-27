@@ -13,6 +13,7 @@ struct frame {
     void *user_address;      /* User address where thread will access this 
                                 memory */
     struct list_elem elem;
+    bool is_evictable;
 };
 
 void frame_init(size_t user_page_limit);

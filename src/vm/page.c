@@ -150,6 +150,7 @@ supp_page_bring_into_memory(void* addr, bool write)
         safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
        {
          frame_free_page (kpage);
+         PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
       memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
 
@@ -157,6 +158,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       if (!install_page (upage, kpage, entry->writable)) 
        {
          frame_free_page (kpage);
+         PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
       entry->status = PAGE_IN_MEM;
       printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
@@ -164,6 +166,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       return true; 
       
     } else if(entry->status == PAGE_IN_SWAP) {
+      
       printf("\n\n--------------- Reading out of swap ------------------------\n");
       /* Get a page of memory. */
       uint8_t *kpage = frame_get_page (PAL_USER, upage);
@@ -171,12 +174,15 @@ supp_page_bring_into_memory(void* addr, bool write)
        //exit_current_process(-1); // TODO: check if we should be exiting process here
       }
       
+      printf("Reading from index %d \n", entry->swap_idx);
+      
       swap_read_from_slot(entry->swap_idx, kpage);
       swap_free_slot(entry->swap_idx);
       
       /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, entry->writable)) 
+      if (!install_page (upage, kpage, true)) 
        {
+         printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;

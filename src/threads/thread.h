@@ -130,6 +130,8 @@ struct thread
  
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
+    int load_status;    /* Load status for this thread */
+
 
     struct file* executing_file;
 

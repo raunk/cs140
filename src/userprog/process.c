@@ -51,15 +51,25 @@ process_execute (const char *file_name)
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (fn_no_args, PRI_DEFAULT, start_process, fn_copy);
+
+//  printf("Created thread with tid=%d\n", tid);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   sema_down(&thread_current ()->is_loaded_sem);
   // make sure child thread loaded successfully
   if (tid != TID_ERROR) {
     struct thread* child_thr = thread_get_by_child_tid(tid);
-    if(child_thr->exit_status == -1) {
+      // Checking the exit status is not enough. A thread could
+      // have loaded properly but then exited due to an error. 
+      // However, here we only return a failure if it did 
+      // not load at all.
+      if(child_thr->load_status == -1){
+        return -1;
+      }
+/*    if(child_thr->exit_status == -1) {
       return -1;
-    }
+    } */
   }
 
   return tid;
@@ -174,12 +184,13 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  
+
   /* If load failed, quit. */
   if (!success) {
     palloc_free_page (file_name);
     
     thread_current ()->exit_status = -1;
+    thread_current ()->load_status = -1;
     sema_up(&thread_current ()->parent->is_loaded_sem);
     
     thread_exit ();

@@ -999,7 +999,7 @@ init_thread (struct thread *t, const char *name, int priority)
   
   t->waited_on_by = -1; 
   t->exit_status = 0;
-  
+  t->load_status = 0; 
   
   list_push_back (&all_list, &t->allelem);
 }

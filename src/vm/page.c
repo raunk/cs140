@@ -111,13 +111,12 @@ supp_page_bring_into_memory(void* addr, bool write)
     /* Get a page of memory. */
      uint8_t *kpage = frame_get_page (PAL_USER, upage);
     
-  //   printf("Bring page %p into mem\n", upage);
-
      if (kpage == NULL) {
-       //exit_current_process(-1); // TODO: check if we should be exiting process here
+       exit_current_process(-1); 
      }
 
      int bytes_to_read = entry->bytes_to_read;
+
      /* Load this page. Don't read from disk if bytes_to_read is zero. */
      if (bytes_to_read > 0 &&
         safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)

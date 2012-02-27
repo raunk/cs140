@@ -67,9 +67,6 @@ process_execute (const char *file_name)
       if(child_thr->load_status == -1){
         return -1;
       }
-/*    if(child_thr->exit_status == -1) {
-      return -1;
-    } */
   }
 
   return tid;

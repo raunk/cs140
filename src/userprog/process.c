@@ -542,8 +542,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
-  
-  // printf("\nENTERED LOAD SEGMENT!!!!!!!!!\nSDLFKJSLDFJLSDJF\n\n");
 
   safe_file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -555,7 +553,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       supp_page_insert_for_on_disk(thread_current()->tid, upage, 
-                file, ofs, page_read_bytes, writable);
+                file, ofs, page_read_bytes, writable, false);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -573,15 +571,24 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
-  kpage = frame_get_page (PAL_USER | PAL_ZERO, ((uint8_t *) PHYS_BASE) - PGSIZE);
+  
+  uint8_t *uaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  kpage = frame_get_page (PAL_USER | PAL_ZERO, uaddr);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      success = install_page (uaddr, kpage, true);
+      if (success) {
+        
+        /* Add this page to supp page table if not there */
+        struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, uaddr);
+        if(supp_pg == NULL) {
+          supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
+        }
+        
         *esp = PHYS_BASE;
-      else
+      } else {
         frame_free_page (kpage);
+      }
     }
   return success;
 }

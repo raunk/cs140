@@ -1,48 +1,28 @@
 #include <debug.h>
+#include <kernel/bitmap.h>
 #include "devices/block.h"
-#include "threads/malloc.h"
 #include "vm/swap.h"
+#include "threads/synch.h"
 
-static int is_slot_in_use(swap_slot_t index);
-static void flag_slot(swap_slot_t index, int is_in_use);
 static int get_free_slot_index(void);
 
-static struct block *swap_block;
-static int swap_size;
+struct block *swap_block;
+static struct lock swap_lock;
 
-#define DATA_SIZE 32
-static uint32_t *slot_data;
+/* Bitmap with SWAP_SIZE bits used to keep track of which swap slots
+   are in-use. */
+struct bitmap *map;
 
 void
 swap_init(void)
 {
   swap_block = block_get_role(BLOCK_SWAP);
-  swap_size = block_size(swap_block);
+  map = bitmap_create(block_size(swap_block));
   
-  int num_data = 1 + swap_size / DATA_SIZE;
-  slot_data = (uint32_t *) malloc(num_data);
-  if (slot_data == NULL) {
+  lock_init (&swap_lock);
+
+  if (map == NULL) {
     PANIC("Could not allocate memory for swap table data structure. ");
-  }
-  int i;
-  for (i = 0; i < num_data; i++) {
-    slot_data[i] = 0;
-  }
-}
-
-static int
-is_slot_in_use(swap_slot_t index)
-{
-  return (slot_data[index / DATA_SIZE] & (1 << (index % DATA_SIZE)));
-}
-
-static void
-flag_slot(swap_slot_t index, int is_in_use)
-{
-  if (is_in_use) {
-    slot_data[index / DATA_SIZE] |= (1 << (index % DATA_SIZE));
-  } else {
-    slot_data[index / DATA_SIZE] &= ~(1 << (index % DATA_SIZE));
   }
 }
 
@@ -51,11 +31,12 @@ flag_slot(swap_slot_t index, int is_in_use)
 static int
 get_free_slot_index(void)
 {
-  int index;
-  for (index = 0; index < swap_size; index++) {
-    if (!is_slot_in_use(index)) {
-      flag_slot(index, 1);
-      return index;
+  int swap_size = bitmap_size(map);
+  int idx;
+  for (idx = 0; idx < swap_size; idx++) {
+    if (!bitmap_test(map, idx)) {
+      bitmap_mark(map, idx);
+      return idx;
     }
   }
   
@@ -64,28 +45,46 @@ get_free_slot_index(void)
 
 /* If a free swap slot is found, copies page data to the slot and 
    returns slot index. Else, returns -1. */
-int
-swap_write_to_slot(const void *page)
+bool
+swap_write_to_slot(const void *page, int swap_arr[8])
 {
-  int index = get_free_slot_index();
-  if (index >= 0) {
-    block_write(swap_block, index, page); 
+  lock_acquire(&swap_lock);
+  int i;
+  for(i = 0; i < 8; i++) {
+    int idx = get_free_slot_index();
+    if (idx >= 0) {
+      block_write(swap_block, idx, page + i*BLOCK_SECTOR_SIZE);
+      swap_arr[i] = idx; 
+    } else {
+      return false;
+    }
   }
-  return index;
+  lock_release(&swap_lock);
+  return true;
 }
 
 /* Copies the page data saved in the swap table at INDEX into BUFFER. */
 void
-swap_read_from_slot(swap_slot_t index, void *buffer)
+swap_read_from_slot(int swap_arr[8], void *buffer)
 {
-  ASSERT(is_slot_in_use(index));
-  block_read(swap_block, index, buffer);
+  lock_acquire(&swap_lock);
+  int i;
+  for(i = 0; i < 8; i++) {
+    ASSERT(bitmap_test(map, swap_arr[i]));
+    block_read(swap_block, swap_arr[i], buffer + i*BLOCK_SECTOR_SIZE);
+  }
+  lock_release(&swap_lock);
 }
 
 /* Flags the slot at index INDEX as free. */
 void
-swap_free_slot(swap_slot_t index)
+swap_free_slot(int swap_arr[8])
 {
-  ASSERT(is_slot_in_use(index));
-  flag_slot(index, 0);
+  lock_acquire(&swap_lock);
+  int i;
+  for (i = 0; i < 8; i++) {
+    ASSERT(bitmap_test(map, swap_arr[i]));
+    bitmap_reset(map, swap_arr[i]);
+  }
+  lock_release(&swap_lock);
 }

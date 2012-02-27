@@ -22,11 +22,16 @@ struct supp_page_entry
  {
    enum page_status status;
    
+   bool is_mmapped;
+   
    /* Page on disk */
    struct file *f;
    int off;
    int bytes_to_read;
    bool writable;
+   
+   /* Sectors in swap */
+   int swap[8];
    
    struct hash_elem hash_elem;
    
@@ -36,7 +41,8 @@ struct supp_page_entry
 void supp_page_init(void);
 struct supp_page_entry *supp_page_lookup (tid_t tid, void *vaddr);
 void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
-    int off, int bytes_to_read, bool writable);
+    int off, int bytes_to_read, bool writable, bool is_mmapped);
+void supp_page_insert_for_on_stack(tid_t tid, void *vaddr);
 bool supp_page_bring_into_memory(void* addr, bool write);
 void supp_remove_entry(struct supp_page_entry* spe);
 

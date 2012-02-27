@@ -186,7 +186,6 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
        return;
     }
   }
-
   // If it looks like a stack pointer, give them a new
   // stack page and return 
   if(smells_like_stack_pointer(f->esp, ptr))
@@ -470,7 +469,7 @@ syscall_mmap(struct intr_frame *f)
     int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     struct file* saved_file = file_reopen(fd_elem->f);
     supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
-            saved_file, offset, page_read_bytes, true);
+            saved_file, offset, page_read_bytes, true, true);
 
     read_bytes -= page_read_bytes;
     cur_page += PGSIZE;

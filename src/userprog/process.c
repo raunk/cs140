@@ -555,7 +555,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       supp_page_insert_for_on_disk(thread_current()->tid, upage, 
-                file, ofs, page_read_bytes, writable);
+                file, ofs, page_read_bytes, writable, false);
 
       /* Advance. */
       read_bytes -= page_read_bytes;

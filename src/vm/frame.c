@@ -15,6 +15,7 @@ struct list_elem *clock_ptr;
 
 static struct lock frame_lock;
 
+static void frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg);
 static struct frame* frame_find_eviction_candidate(void);
 
 void
@@ -133,6 +134,17 @@ frame_free_page(void *page)
   PANIC ("frame_free: TRIED TO FREE PAGE NOT MAPPED IN FRAME LIST\n");
 }
 
+static void
+frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
+{
+  bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
+  if(!written) {
+    // TODO: kill process, free resources
+    PANIC("OUT OF SWAP SPACE.\n");
+  }
+  supp_pg->status = PAGE_IN_SWAP;
+}
+
 static struct frame*
 frame_find_eviction_candidate(void)
 {
@@ -161,38 +173,39 @@ frame_find_eviction_candidate(void)
           /* Clear the reference bit, try next frame. */
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
-          /* Choose to evict this frame. */
+          /* Reference bit is cleared. */
           struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
           if(supp_pg == NULL) {
             PANIC("frame_find_eviction_candidate: COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n",
                 frm->user_address);
           }
           
-          pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
-          
           if(supp_pg->f != NULL) {
             /* It's a file page */
             if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
-              /* File page has been modified, so write back to disk. */
-              ASSERT(supp_pg->writable);
-              safe_file_write_at(supp_pg->f, frm->physical_address, supp_pg->bytes_to_read, 
-                  supp_pg->off);
-              pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
+              if (supp_pg->is_mmapped) {
+                /* Mmapped file page has been modified, so write back to disk. */
+                ASSERT(supp_pg->writable);
+                safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
+                pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
+                supp_pg->status = PAGE_ON_DISK;
+                
+                /* Give page second chance. */
+                continue;
+              } else {
+                /* File page is not mmapped, so write to swap.*/
+                frame_write_to_swap(frm, supp_pg);
+              }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
             }
-            
-            supp_pg->status = PAGE_ON_DISK;
           } else {
             /* It's a stack page, we must write it to swap */
-            bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
-            if(!written) {
-              // TODO: kill process, free resources
-              PANIC("OUT OF SWAP SPACE.\n");
-            }
-            supp_pg->status = PAGE_IN_SWAP;
+            frame_write_to_swap(frm, supp_pg);
           }
           
+          /* Choose to evict this frame. */
+          pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
           return frm;
         }
 

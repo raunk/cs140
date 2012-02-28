@@ -353,6 +353,8 @@ exit_current_process(int status)
 
   /* Unmap any files that were not explicitly unmapped */
   handle_unmapped_files();
+  
+  frame_cleanup_for_thread(cur);
 
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);

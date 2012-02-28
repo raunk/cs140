@@ -197,8 +197,8 @@ frame_find_eviction_candidate(void)
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
-              supp_pg->status = PAGE_ON_DISK;              
-                //frame_write_to_swap(frm, supp_pg);              
+              //supp_pg->status = PAGE_ON_DISK;              
+              frame_write_to_swap(frm, supp_pg);              
             }
           } else {
             /* It's a stack page, we must write it to swap */
@@ -213,4 +213,30 @@ frame_find_eviction_candidate(void)
 
       }
       
+}
+
+void
+frame_cleanup_for_thread(struct thread* t)
+{
+  lock_acquire (&frame_lock);
+  struct list_elem *e = list_begin (&frame_list);
+  struct list_elem *next;
+  while(e != list_end (&frame_list)) {
+    next = list_next (e);
+    
+    struct frame *frm = list_entry (e, struct frame, elem);
+    if (frm->owner == t) {
+      list_remove(e);
+      
+      struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
+      supp_remove_entry(supp_e);
+      
+      pagedir_clear_page (frm->owner->pagedir, frm->user_address);
+      
+      palloc_free_page (frm->physical_address);
+      free(frm);
+    }
+    e = next;
+  }
+  lock_release (&frame_lock);
 }

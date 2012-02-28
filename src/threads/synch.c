@@ -209,6 +209,8 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
   
   struct thread *cur_thread = thread_current ();
+  
+  //printf("THREAD %d ATTEMPTS TO ACQUIRE LOCK %p\n", cur_thread->tid, lock);
 
   /* If we are not in the multi-level feedback queue scheduler
      then use priority donation */
@@ -217,16 +219,18 @@ lock_acquire (struct lock *lock)
     /* donate priority if someone holds the lock we want */
     enum intr_level old_level = intr_disable ();
      
-    if (lock->holder != NULL) {
-      cur_thread->lock_waiting_for = lock;
-      cur_thread->t_donating_to = lock->holder;
-      thread_donate_priority(cur_thread);
-    }
+    // if (lock->holder != NULL) {
+    //   cur_thread->lock_waiting_for = lock;
+    //   cur_thread->t_donating_to = lock->holder;
+    //   thread_donate_priority(cur_thread);
+    // }
     intr_set_level (old_level);
   }  
 
   sema_down (&lock->semaphore);
   lock->holder = cur_thread;
+  
+  //printf("THREAD %d ACQUIRES LOCK %p\n", cur_thread->tid, lock);
 }
 
 void

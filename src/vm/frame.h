@@ -19,6 +19,7 @@ void frame_init(size_t user_page_limit);
 void* frame_get_page(enum palloc_flags flags, void *uaddr);
 void frame_free_page(void *page);
 void frame_free_user_page(void *vaddr);
+void frame_cleanup_for_thread(struct thread* t);
 
 #endif /* vm/frame.h */
 

@@ -5,6 +5,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
@@ -17,13 +18,16 @@ static unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
 static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
   void *aux UNUSED);
   
-
 static struct hash supp_page_table;
 
 void
 supp_remove_entry(struct supp_page_entry* spe)
 {
+  printf("REMOVING PTE ENTRY: (%d, %p)\n", spe->key.tid, spe->key.vaddr);
+  struct thread* t = thread_get_by_tid(spe->key.tid);
+  lock_acquire(&t->supp_page_lock);
   hash_delete(&supp_page_table, &spe->hash_elem);
+  lock_release(&t->supp_page_lock);
 }
 
 
@@ -68,7 +72,12 @@ supp_page_lookup (tid_t tid, void *vaddr)
 
   entry.key.tid = tid;
   entry.key.vaddr = vaddr;
+  
+  struct thread* t = thread_get_by_tid(tid);
+  lock_acquire(&t->supp_page_lock);
   e = hash_find (&supp_page_table, &entry.hash_elem);
+  lock_release(&t->supp_page_lock);
+  
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
 }
 
@@ -82,6 +91,9 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   }
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
+  
+  struct thread* t = thread_get_by_tid(tid);
+  lock_acquire(&t->supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -95,6 +107,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry_to_set->bytes_to_read = 0;
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
+  lock_release(&t->supp_page_lock);
 }
 
 void
@@ -109,6 +122,9 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
+  
+  struct thread* t = thread_get_by_tid(tid);
+  lock_acquire(&t->supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -123,6 +139,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   entry_to_set->bytes_to_read = bytes_to_read;
   entry_to_set->writable = writable;
   entry_to_set->is_mmapped = is_mmapped;
+  lock_release(&t->supp_page_lock);
 }
 
 bool 
@@ -131,7 +148,7 @@ supp_page_bring_into_memory(void* addr, bool write)
   void *upage = pg_round_down(addr);
   //printf("Attempting to lookup %p in supp page table..\n", upage);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
-  if (entry) {
+  if (entry != NULL) {
     if(entry->status == PAGE_ON_DISK) {
       //printf("\n\n--------------- Reading page from disk ------------------------\n");
       // If we page faulted on writing to a non-writeable location
@@ -196,6 +213,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       return true;
     }
   }
+  printf("EXITING ON ADDRESS: %p\n", addr);
   return false;
 }
 

@@ -982,12 +982,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->next_fd = 2;
   list_init(&t->file_descriptors);
  
-
- 
   /* Setup thread variables for signaling dying condition */
   list_init(&t->child_list);
   sema_init(&t->is_loaded_sem, 0);
   sema_init(&t->is_dying, 0);
+  
+  /* VM Synch */
+  lock_init(&t->supp_page_lock);
   
   // use running_thread since current thread might not have status
   // set to running yet

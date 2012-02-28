@@ -137,12 +137,13 @@ frame_free_page(void *page)
 static void
 frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
 {
+  supp_pg->status = PAGE_IN_SWAP;
   bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
   if(!written) {
     // TODO: kill process, free resources
     PANIC("OUT OF SWAP SPACE.\n");
   }
-  supp_pg->status = PAGE_IN_SWAP;
+  
 }
 
 static struct frame*
@@ -198,6 +199,7 @@ frame_find_eviction_candidate(void)
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
+              supp_pg->status = PAGE_ON_DISK;
             }
           } else {
             /* It's a stack page, we must write it to swap */

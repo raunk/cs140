@@ -143,7 +143,6 @@ frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
     // TODO: kill process, free resources
     PANIC("OUT OF SWAP SPACE.\n");
   }
-  
 }
 
 static struct frame*
@@ -189,7 +188,6 @@ frame_find_eviction_candidate(void)
                 ASSERT(supp_pg->writable);
                 safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
                 pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
-                supp_pg->status = PAGE_ON_DISK;
                 
                 /* Give page second chance. */
                 continue;
@@ -199,7 +197,8 @@ frame_find_eviction_candidate(void)
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
-              supp_pg->status = PAGE_ON_DISK;
+              supp_pg->status = PAGE_ON_DISK;              
+                //frame_write_to_swap(frm, supp_pg);              
             }
           } else {
             /* It's a stack page, we must write it to swap */
@@ -207,7 +206,8 @@ frame_find_eviction_candidate(void)
           }
           
           /* Choose to evict this frame. */
-          pagedir_clear_page (frm->owner->pagedir, frm->user_address); 
+          pagedir_clear_page (frm->owner->pagedir, frm->user_address);
+          
           return frm;
         }
 

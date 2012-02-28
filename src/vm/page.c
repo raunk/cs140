@@ -107,6 +107,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry_to_set->bytes_to_read = 0;
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
+  entry_to_set->is_mmapped = false;
   lock_release(&t->supp_page_lock);
 }
 

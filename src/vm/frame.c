@@ -17,6 +17,7 @@ static struct lock frame_lock;
 
 static void frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg);
 static struct frame* frame_find_eviction_candidate(void);
+static void free_frame_and_check_clock(struct list_elem* e, struct frame* frm);
 
 void
 frame_init(size_t user_page_limit)
@@ -98,9 +99,7 @@ frame_free_user_page(void *vaddr)
           frm->owner == cur) {
         /* Remove the struct frame from the frame list and
              free both the page and the struct frame */
-        list_remove(e);
-        palloc_free_page(frm->physical_address);
-        free(frm);
+        free_frame_and_check_clock(e, frm);
         return;
       }
     }
@@ -122,12 +121,11 @@ frame_free_page(void *page)
        e = list_next (e))
     {
       struct frame *frm = list_entry (e, struct frame, elem);
+
       if (frm->physical_address == page) {
         /* Remove the struct frame from the frame list and
            free both the page and the struct frame */
-        list_remove(e);
-        palloc_free_page(page);
-        free(frm);
+        free_frame_and_check_clock(e, frm);
         lock_release (&frame_lock);
         return;
       }
@@ -147,6 +145,25 @@ frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
   }
 }
 
+
+
+static void
+free_frame_and_check_clock(struct list_elem* e, struct frame* frm)
+{
+  if(e == clock_ptr)
+    {
+      clock_ptr = list_next(clock_ptr);
+      if(clock_ptr == list_end(&frame_list))
+        clock_ptr = list_begin(&frame_list);
+    }
+
+
+  list_remove(e);
+  palloc_free_page(frm->physical_address);
+  free(frm);
+}
+
+
 static struct frame*
 frame_find_eviction_candidate(void)
 {
@@ -165,11 +182,21 @@ frame_find_eviction_candidate(void)
   while (1)
       { 
         struct frame *frm = list_entry (clock_ptr, struct frame, elem);
+        if(!frm->is_evictable) continue;
+        frm->is_evictable = false;
+        
+//        printf("Clock ptr %p\n", clock_ptr);
         clock_ptr = list_next(clock_ptr);
         if(clock_ptr == list_end (&frame_list)) {
           clock_ptr = list_begin (&frame_list);
         }
-        if(!frm->is_evictable) continue;
+        
+
+        if(!is_thread(frm->owner))
+          {
+            printf("NOT A THREAD %p\n", frm->owner);
+            continue;
+          }
         
         /* Has this page been referenced? */
         if(pagedir_is_accessed (frm->owner->pagedir, frm->user_address)) {
@@ -213,7 +240,7 @@ frame_find_eviction_candidate(void)
           
           return frm;
         }
-
+        frm->is_evictable = true;
       }
       
 }
@@ -221,23 +248,25 @@ frame_find_eviction_candidate(void)
 void
 frame_cleanup_for_thread(struct thread* t)
 {
+//  printf("Cleaning up \n");
   lock_acquire (&frame_lock);
-  struct list_elem *e = list_begin (&frame_list);
+
+  if(list_empty(&frame_list)) return;
+
+  struct list_elem *e = list_front (&frame_list);
   struct list_elem *next;
   while(e != list_end (&frame_list)) {
     next = list_next (e);
     
     struct frame *frm = list_entry (e, struct frame, elem);
+
     if (frm->owner == t) {
-      list_remove(e);
-      
       struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
       supp_remove_entry(supp_e);
       
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
-      
-      palloc_free_page (frm->physical_address);
-      free(frm);
+
+      free_frame_and_check_clock(e, frm);
     }
     e = next;
   }

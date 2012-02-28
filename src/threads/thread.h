@@ -234,6 +234,8 @@ void thread_compute_priorities(void);
 void thread_compute_load_average(void);
 void thread_compute_recent_cpu(void);
 
+bool is_thread (struct thread *);
+
 // Memory mapping functions */
 void thread_setup_mmap(struct thread* t);
 int thread_add_mmap_entry(void* vaddr, int length, struct inode* inode);

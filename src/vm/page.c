@@ -182,8 +182,8 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
-      frm->is_evictable = true;
       entry->status = PAGE_IN_MEM;
+      frm->is_evictable = true;
       // printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
       //       printf("--------------- End reading page from disk ------------------------\n\n");
       return true; 

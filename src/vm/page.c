@@ -158,8 +158,9 @@ supp_page_bring_into_memory(void* addr, bool write)
       } 
 
     /* Get a page of memory. */
-     uint8_t *kpage = frame_get_page (PAL_USER, upage);
-    
+     struct frame* frm = frame_get_page (PAL_USER, upage);
+     uint8_t *kpage = frm->physical_address;
+     
      if (kpage == NULL) {
        exit_current_process(-1); 
      }
@@ -181,6 +182,7 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
+      frm->is_evictable = true;
       entry->status = PAGE_IN_MEM;
       // printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
       //       printf("--------------- End reading page from disk ------------------------\n\n");
@@ -190,7 +192,8 @@ supp_page_bring_into_memory(void* addr, bool write)
       
       //printf("\n\n--------------- Reading out of swap ------------------------\n");
       /* Get a page of memory. */
-      uint8_t *kpage = frame_get_page (PAL_USER, upage);
+      struct frame* frm = frame_get_page (PAL_USER, upage);
+      uint8_t *kpage = frm->physical_address;
       if (kpage == NULL) {
        //exit_current_process(-1); // TODO: check if we should be exiting process here
       }
@@ -205,6 +208,7 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;
+      frm->is_evictable = true;
       
       // printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
       //       printf("Page is valid up to %p\n", (upage+PGSIZE));

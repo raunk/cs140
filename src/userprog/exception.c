@@ -130,7 +130,9 @@ smells_like_stack_pointer(void* esp, void* ptr)
 void
 install_stack_page(void* upage)
 {
-    uint8_t *kpage = frame_get_page (PAL_USER, upage);
+    struct frame* frm = frame_get_page (PAL_USER, upage);
+    uint8_t *kpage = frm->physical_address;
+    
     memset (kpage, 0, PGSIZE);
     /* Add this page to supp page table if not there */
     struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
@@ -143,6 +145,7 @@ install_stack_page(void* upage)
      {
        frame_free_page (kpage);
      }
+    frm->is_evictable = true;
 }
 
 

@@ -26,7 +26,7 @@ frame_init(size_t user_page_limit)
   lock_init (&frame_lock);
 }
 
-void*
+struct frame*
 frame_get_page(enum palloc_flags flags, void *uaddr)
 {
   /* Ensure we are always getting from the user pool */
@@ -36,11 +36,12 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
   /* Attempt to allocate a page, if this comes back null then
      we need to evict */
   void *page = palloc_get_page(flags);
+  struct frame* frm;
   if(page == NULL) {
     lock_acquire (&frame_lock);
     
-    struct frame* frm = frame_find_eviction_candidate();
-    
+    frm = frame_find_eviction_candidate();
+    frm->is_evictable = false;
     // printf("KPAGE: %d\n", *(int*)frm->physical_address);
     //     printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
     // printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
@@ -56,16 +57,16 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     page = frm->physical_address;
     
   } else {
-    struct frame *frm = (struct frame*) malloc(sizeof(struct frame));
+    lock_acquire (&frame_lock);
+    frm = (struct frame*) malloc(sizeof(struct frame));
     if(frm == NULL) {
       PANIC ("frame_get: WE RAN OUT OF MALLOC SPACE. SHIT!\n");
     }
-    
+    frm->is_evictable = false;
     frm->physical_address = page;
     frm->user_address = uaddr;
     frm->owner = thread_current ();
     
-    lock_acquire (&frame_lock);
     list_push_front(&frame_list, &frm->elem);
     lock_release (&frame_lock);
     
@@ -75,7 +76,8 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     }
   }
   //printf("Returning physical page %p for user page %p\n", page, uaddr);
-  return page;
+  //frm->is_evictable = true;
+  return frm;
 }
 
 
@@ -167,6 +169,7 @@ frame_find_eviction_candidate(void)
         if(clock_ptr == list_end (&frame_list)) {
           clock_ptr = list_begin (&frame_list);
         }
+        if(!frm->is_evictable) continue;
         
         /* Has this page been referenced? */
         if(pagedir_is_accessed (frm->owner->pagedir, frm->user_address)) {

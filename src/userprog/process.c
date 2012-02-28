@@ -575,7 +575,9 @@ setup_stack (void **esp)
   bool success = false;
   
   uint8_t *uaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  kpage = frame_get_page (PAL_USER | PAL_ZERO, uaddr);
+  struct frame* frm = frame_get_page (PAL_USER, uaddr);
+  kpage = frm->physical_address;
+
   if (kpage != NULL) 
     {
       success = install_page (uaddr, kpage, true);
@@ -587,6 +589,7 @@ setup_stack (void **esp)
           supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
         }
         
+        frm->is_evictable = true;
         *esp = PHYS_BASE;
       } else {
         frame_free_page (kpage);

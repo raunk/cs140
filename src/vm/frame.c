@@ -257,8 +257,11 @@ frame_cleanup_for_thread(struct thread* t)
 //  printf("Cleaning up \n");
   lock_acquire (&frame_lock);
 
-  if(list_empty(&frame_list)) return;
-
+  if(list_empty(&frame_list)) {
+    lock_release (&frame_lock);
+    return;
+  }
+  
   struct list_elem *e = list_front (&frame_list);
   struct list_elem *next;
   while(e != list_end (&frame_list)) {

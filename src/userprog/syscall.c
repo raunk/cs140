@@ -307,11 +307,11 @@ unmap_file_helper(struct mmap_elem* map_elem)
                          sp_entry->off); 
     }
     // Remove supp page entry??
-    /*if(sp_entry->status == PAGE_IN_MEM)
+/*    if(sp_entry->status == PAGE_IN_MEM)
       {
         printf("in mem... free\n");
-        frame_free_page(cur_addr);
-      } */
+        frame_free_user_page(cur_addr);
+      }  */
     supp_remove_entry(sp_entry);
 
     write_bytes -= page_write_bytes;    

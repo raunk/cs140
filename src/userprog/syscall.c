@@ -181,7 +181,7 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
     if(pagedir_get_page (t->pagedir, ptr) != NULL) {
       return;
     }
-    
+
     if(supp_page_bring_into_memory(ptr, false)) {
        return;
     }
@@ -248,7 +248,7 @@ static void syscall_create(struct intr_frame * f)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  syscall_check_user_pointer (f->esp, f);
+  syscall_check_user_pointer (f->esp, f);  
   syscall_check_user_pointer (f->esp+sizeof(int*)-1, f);
   
   /* Read sys call number from location pointed to by stack pointer */
@@ -530,7 +530,8 @@ syscall_check_buffer_bounds(char* buffer, unsigned length,
 {
   unsigned length_check = length;
   while(length_check >= PGSIZE) {
-    syscall_check_user_pointer(buffer+PGSIZE-1, f);
+   // printf("CHECKING BUFFER AT: %p\n", (buffer+length_check-1));
+    syscall_check_user_pointer(buffer+length_check-1, f);
     length_check -= PGSIZE;
   }
   syscall_check_user_pointer(buffer+length_check-1, f);

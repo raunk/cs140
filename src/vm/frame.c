@@ -226,15 +226,18 @@ frame_find_eviction_candidate(void)
                 continue;
               } else {
                 /* File page is not mmapped, so write to swap.*/
+                //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
                 frame_write_to_swap(frm, supp_pg);
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
-              //supp_pg->status = PAGE_ON_DISK;              
+              //supp_pg->status = PAGE_ON_DISK;
+              //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);              
               frame_write_to_swap(frm, supp_pg);              
             }
           } else {
             /* It's a stack page, we must write it to swap */
+            //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
             frame_write_to_swap(frm, supp_pg);
           }
           

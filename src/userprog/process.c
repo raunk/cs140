@@ -586,10 +586,12 @@ setup_stack (void **esp)
       if (success) {
         
         /* Add this page to supp page table if not there */
+        lock_acquire(&supp_page_lock);
         struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, uaddr);
         if(supp_pg == NULL) {
           supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
         }
+        lock_release(&supp_page_lock);
         
         frm->is_evictable = true;
         *esp = PHYS_BASE;

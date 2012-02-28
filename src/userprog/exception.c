@@ -130,21 +130,28 @@ smells_like_stack_pointer(void* esp, void* ptr)
 void
 install_stack_page(void* upage)
 {
+    /* Add this page to supp page table if not there */
+    lock_acquire(&supp_page_lock);
+    struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
+    if(supp_pg == NULL) {
+      supp_page_insert_for_on_stack(thread_current()->tid, upage);
+      //printf("Inserting page %p for %d valid up to %p\n", upage, thread_current()->tid, (upage+4096));
+    }
+    lock_release(&supp_page_lock);
+    
     struct frame* frm = frame_get_page (PAL_USER, upage);
     uint8_t *kpage = frm->physical_address;
     
     memset (kpage, 0, PGSIZE);
-    /* Add this page to supp page table if not there */
-    struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
-    if(supp_pg == NULL) {
-      supp_page_insert_for_on_stack(thread_current()->tid, upage);
-    }
- 
+    
     /* Add the page to the process's address space. */
+    //printf("INSTALLING PAGE!!!\n");
+    // TODO should this page always be writable????
     if (!install_page (upage, kpage, true)) 
      {
        frame_free_page (kpage);
      }
+    // printf("FINISHED INSTALLING PAGE!\n");
     frm->is_evictable = true;
 }
 
@@ -192,6 +199,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
   
+  // printf("Thread is %d\n", thread_current()->tid);
   // printf ("Page fault at %p: %s error %s page in %s context.\n",
   //           fault_addr,
   //           not_present ? "not present" : "rights violation",

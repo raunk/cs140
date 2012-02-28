@@ -19,7 +19,6 @@ static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *
   void *aux UNUSED);
   
 static struct hash supp_page_table;
-static struct lock supp_page_lock;
 
 void
 supp_remove_entry(struct supp_page_entry* spe)
@@ -74,9 +73,9 @@ supp_page_lookup (tid_t tid, void *vaddr)
   entry.key.tid = tid;
   entry.key.vaddr = vaddr;
   
-  lock_acquire(&supp_page_lock);
+  //lock_acquire(&supp_page_lock);
   e = hash_find (&supp_page_table, &entry.hash_elem);
-  lock_release(&supp_page_lock);
+  //lock_release(&supp_page_lock);
   
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
 }
@@ -92,7 +91,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   
-  lock_acquire(&supp_page_lock);
+  //lock_acquire(&supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -107,7 +106,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
   entry_to_set->is_mmapped = false;
-  lock_release(&supp_page_lock);
+  //lock_release(&supp_page_lock);
 }
 
 void
@@ -148,6 +147,7 @@ supp_page_bring_into_memory(void* addr, bool write)
   //printf("Attempting to lookup %p in supp page table..\n", upage);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   if (entry != NULL) {
+    //printf("ENTRY IS FOUND WITH STATUS %d\n", entry->status);
     if(entry->status == PAGE_ON_DISK) {
       //printf("\n\n--------------- Reading page from disk ------------------------\n");
       // If we page faulted on writing to a non-writeable location

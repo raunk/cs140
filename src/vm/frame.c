@@ -156,7 +156,10 @@ free_frame_and_check_clock(struct list_elem* e, struct frame* frm)
       if(clock_ptr == list_end(&frame_list))
         clock_ptr = list_begin(&frame_list);
     }
-
+  if (e == clock_ptr) {
+    /* Handle case where e is only elem in the list. */
+    clock_ptr = NULL;
+  }
 
   list_remove(e);
   palloc_free_page(frm->physical_address);

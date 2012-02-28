@@ -131,9 +131,6 @@ struct thread
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
     int load_status;    /* Load status for this thread */
-    
-    /* Synch Virtual Mem */
-    struct lock supp_page_lock;
 
     struct file* executing_file;
 

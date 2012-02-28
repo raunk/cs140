@@ -987,9 +987,6 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->is_loaded_sem, 0);
   sema_init(&t->is_dying, 0);
   
-  /* VM Synch */
-  lock_init(&t->supp_page_lock);
-  
   // use running_thread since current thread might not have status
   // set to running yet
   struct thread* cur = running_thread ();

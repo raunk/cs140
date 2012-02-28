@@ -19,15 +19,15 @@ static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *
   void *aux UNUSED);
   
 static struct hash supp_page_table;
+static struct lock supp_page_lock;
 
 void
 supp_remove_entry(struct supp_page_entry* spe)
 {
 //  printf("REMOVING PTE ENTRY: (%d, %p)\n", spe->key.tid, spe->key.vaddr);
-  struct thread* t = thread_get_by_tid(spe->key.tid);
-  lock_acquire(&t->supp_page_lock);
+  lock_acquire(&supp_page_lock);
   hash_delete(&supp_page_table, &spe->hash_elem);
-  lock_release(&t->supp_page_lock);
+  lock_release(&supp_page_lock);
 }
 
 
@@ -60,6 +60,7 @@ void
 supp_page_init(void)
 {
   hash_init(&supp_page_table, supp_page_hash, supp_page_less, NULL);
+  lock_init(&supp_page_lock);
 }
 
 struct supp_page_entry *
@@ -73,10 +74,9 @@ supp_page_lookup (tid_t tid, void *vaddr)
   entry.key.tid = tid;
   entry.key.vaddr = vaddr;
   
-  struct thread* t = thread_get_by_tid(tid);
-  lock_acquire(&t->supp_page_lock);
+  lock_acquire(&supp_page_lock);
   e = hash_find (&supp_page_table, &entry.hash_elem);
-  lock_release(&t->supp_page_lock);
+  lock_release(&supp_page_lock);
   
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
 }
@@ -92,8 +92,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   
-  struct thread* t = thread_get_by_tid(tid);
-  lock_acquire(&t->supp_page_lock);
+  lock_acquire(&supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -108,7 +107,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
   entry_to_set->is_mmapped = false;
-  lock_release(&t->supp_page_lock);
+  lock_release(&supp_page_lock);
 }
 
 void
@@ -124,8 +123,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   
-  struct thread* t = thread_get_by_tid(tid);
-  lock_acquire(&t->supp_page_lock);
+  lock_acquire(&supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -140,7 +138,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   entry_to_set->bytes_to_read = bytes_to_read;
   entry_to_set->writable = writable;
   entry_to_set->is_mmapped = is_mmapped;
-  lock_release(&t->supp_page_lock);
+  lock_release(&supp_page_lock);
 }
 
 bool 

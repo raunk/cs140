@@ -23,7 +23,7 @@ static struct hash supp_page_table;
 void
 supp_remove_entry(struct supp_page_entry* spe)
 {
-  printf("REMOVING PTE ENTRY: (%d, %p)\n", spe->key.tid, spe->key.vaddr);
+//  printf("REMOVING PTE ENTRY: (%d, %p)\n", spe->key.tid, spe->key.vaddr);
   struct thread* t = thread_get_by_tid(spe->key.tid);
   lock_acquire(&t->supp_page_lock);
   hash_delete(&supp_page_table, &spe->hash_elem);
@@ -202,7 +202,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
-         printf("COULDNT INSTALL PAGE!\n");
+      //   printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
       entry->status = PAGE_IN_MEM;
@@ -213,7 +213,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       return true;
     }
   }
-  printf("EXITING ON ADDRESS: %p\n", addr);
+//  printf("EXITING ON ADDRESS: %p\n", addr);
   return false;
 }
 

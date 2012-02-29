@@ -132,7 +132,6 @@ struct thread
     int exit_status;    /* Exit status for this thread */
     int load_status;    /* Load status for this thread */
     
-    struct semaphore page_fault_sema;
 
     struct file* executing_file;
 

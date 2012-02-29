@@ -998,7 +998,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = 0;
   t->load_status = 0; 
   
-  sema_init(&t->page_fault_sema, 1);
+//  sema_init(&t->page_fault_sema, 1);
   
   list_push_back (&all_list, &t->allelem);
 }

@@ -10,11 +10,14 @@
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 #include "vm/frame.h"
 #include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
+
+struct semaphore page_fault_sema;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
@@ -37,6 +40,8 @@ static void page_fault (struct intr_frame *);
 void
 exception_init (void) 
 {
+  sema_init(&page_fault_sema, 1);
+
   /* These exceptions can be raised explicitly by a user program,
      e.g. via the INT, INT3, INTO, and BOUND instructions.  Thus,
      we set DPL==3, meaning that user programs are allowed to
@@ -184,13 +189,14 @@ page_fault (struct intr_frame *f)
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
+  sema_down(&page_fault_sema);
 //  printf("FAULT ON %p\n", fault_addr);
 
-  if(fault_addr >= 0xcccccccc)
+/*  if(fault_addr >= 0xcccccccc)
     {
       PANIC("stop!\n");
     }
-
+*/
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -223,18 +229,21 @@ page_fault (struct intr_frame *f)
   // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));
   if(supp_page_bring_into_memory(fault_addr, write)) {
     //printf("RETURNING FROM PAGE FAULT AT %p\n", fault_addr);
+     sema_up(&page_fault_sema);
      return;
   } else {
     if(smells_like_stack_pointer(f->esp, fault_addr))
       {
         void *upage = pg_round_down(fault_addr);
         install_stack_page(upage);
+        sema_up(&page_fault_sema);
         return;
       }
   }
 
   /* If we had no page table information here, and it wasn't a stack pointer,
      we should kill the process. */
+  sema_up(&page_fault_sema);
   exit_current_process(-1);
 
 

@@ -286,7 +286,10 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
-
+/* Unmaps this mapping element. This means that if this memory
+ * has been modified, it needs to be written back to disk at the proper
+ * location, and this memory should be freed and reset for this thread,
+ * and this entry removed from the supplemental page table */
 static void
 unmap_file_helper(struct mmap_elem* map_elem)
 {
@@ -306,7 +309,6 @@ unmap_file_helper(struct mmap_elem* map_elem)
       safe_file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
     }
-    // Remove supp page entry??
     if(sp_entry->status == PAGE_IN_MEM)
       {
           frame_free_user_page(cur_addr);
@@ -379,7 +381,10 @@ syscall_exit(struct intr_frame *f)
   exit_current_process(status);
 }
 
-
+/* Memory map system call. We take a file descriptor and 
+ * address, and map this into memory for the current thread,
+ * and do error checking on this locations validity before
+ * saving information in the supplemental page table */
 static void 
 syscall_mmap(struct intr_frame *f)
 {
@@ -481,6 +486,8 @@ syscall_mmap(struct intr_frame *f)
   f->eax = map_id; 
 }
 
+/* The unmap system call. This takes a mapping id, 
+ * unmaps this memory for this process */
 static void 
 syscall_munmap(struct intr_frame *f)
 {

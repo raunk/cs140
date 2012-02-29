@@ -23,7 +23,6 @@ static struct hash supp_page_table;
 void
 supp_remove_entry(struct supp_page_entry* spe)
 {
-//  printf("REMOVING PTE ENTRY: (%d, %p)\n", spe->key.tid, spe->key.vaddr);
   lock_acquire(&supp_page_lock);
   hash_delete(&supp_page_table, &spe->hash_elem);
   lock_release(&supp_page_lock);

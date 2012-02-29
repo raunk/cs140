@@ -201,12 +201,18 @@ supp_page_bring_into_memory(void* addr, bool write)
       swap_read_from_slot(entry->swap, kpage);
       swap_free_slot(entry->swap);
       
+      bool is_dirty = pagedir_is_dirty(thread_current()->pagedir, upage);
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
       //   printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
+      if (is_dirty) {
+        /* If page was dirty before writing to swap, then set its dirty bit back to 1. */
+        pagedir_set_dirty(thread_current()->pagedir, upage, true);
+      }
+      
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;
       

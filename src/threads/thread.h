@@ -126,7 +126,7 @@ struct thread
     int next_fd;
    
     struct hash map_hash;           /* Hash for memory mapping */
-    int next_map_id;
+    int next_map_id;                /* The next mmap id for this thread */
  
     int waited_on_by;   /* pid of process waiting on this thread */
     int exit_status;    /* Exit status for this thread */
@@ -153,6 +153,8 @@ struct file_descriptor_elem
   struct list_elem elem;
 };
   
+/* Struct to represent an element in the hash table per thread for 
+ * memory mapped files */
 struct mmap_elem
 {
   int map_id; /* Mappping id number */

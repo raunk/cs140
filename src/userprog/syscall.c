@@ -296,12 +296,15 @@ unmap_file_helper(struct mmap_elem* map_elem)
   void* cur_addr = map_elem->vaddr;
   int write_bytes = map_elem->length;
 
-  int cur_tid = thread_current()->tid;
+  struct thread* cur_thread = thread_current();
   int offset = 0; 
   
   while(write_bytes > 0)
   {
-    struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+    lock_acquire(&thread_current()->supp_page_lock);
+    struct supp_page_entry* sp_entry = supp_page_lookup(cur_thread, cur_addr);
+    lock_release(&thread_current()->supp_page_lock);
+    
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
@@ -314,7 +317,7 @@ unmap_file_helper(struct mmap_elem* map_elem)
           frame_free_user_page(cur_addr);
           pagedir_clear_page(thread_current()->pagedir, cur_addr);
       }  
-    supp_remove_entry(sp_entry);
+    supp_remove_entry(cur_thread, cur_addr);
 
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;
@@ -444,9 +447,10 @@ syscall_mmap(struct intr_frame *f)
         }
     }
 
-
-  struct supp_page_entry* spe = supp_page_lookup(thread_current()->tid,
+  lock_acquire(&thread_current()->supp_page_lock);
+  struct supp_page_entry* spe = supp_page_lookup(thread_current(),
                                                   addr);
+  lock_release(&thread_current()->supp_page_lock);
   // Error if we are writing over a location that is already in the 
   // supplementary page table
   if(spe != NULL)
@@ -475,7 +479,7 @@ syscall_mmap(struct intr_frame *f)
   {
     int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     struct file* saved_file = file_reopen(fd_elem->f);
-    supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
+    supp_page_insert_for_on_disk(thread_current(), cur_page,
             saved_file, offset, page_read_bytes, true, true);
 
     read_bytes -= page_read_bytes;

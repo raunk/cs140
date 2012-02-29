@@ -131,13 +131,7 @@ void
 install_stack_page(void* upage)
 {
     /* Add this page to supp page table if not there */
-    lock_acquire(&supp_page_lock);
-    struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, upage);
-    if(supp_pg == NULL) {
-      supp_page_insert_for_on_stack(thread_current()->tid, upage);
-      //printf("Inserting page %p for %d valid up to %p\n", upage, thread_current()->tid, (upage+4096));
-    }
-    lock_release(&supp_page_lock);
+    struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current(), upage);
     
     struct frame* frm = frame_get_page (PAL_USER, upage);
     uint8_t *kpage = frm->physical_address;

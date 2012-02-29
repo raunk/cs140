@@ -202,7 +202,8 @@ start_process (void *file_name_)
   file_name = strtok_r(file_name_, " ", &saveptr);
   
   palloc_free_page (file_name);
-    
+  
+  //hash_init(&thread_current()->supp_page_table, supp_page_hash, supp_page_less, NULL);
   thread_setup_mmap(thread_current());
 
   /* Start the user process by simulating a return from an
@@ -556,7 +557,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      supp_page_insert_for_on_disk(thread_current()->tid, upage, 
+      supp_page_insert_for_on_disk(thread_current(), upage, 
                 file, ofs, page_read_bytes, writable, false);
 
       /* Advance. */
@@ -586,12 +587,7 @@ setup_stack (void **esp)
       if (success) {
         
         /* Add this page to supp page table if not there */
-        lock_acquire(&supp_page_lock);
-        struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, uaddr);
-        if(supp_pg == NULL) {
-          supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
-        }
-        lock_release(&supp_page_lock);
+        struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current(), uaddr);
         
         frm->is_evictable = true;
         *esp = PHYS_BASE;

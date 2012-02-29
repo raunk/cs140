@@ -19,6 +19,10 @@
 #include "userprog/syscall.h"
 #endif
 
+#ifdef VM
+#include "vm/page.h"
+#endif
+
 #ifdef DEBUG
 #define debug(fmt, ...)  printf(fmt, __VA_ARGS__)
 #else
@@ -999,6 +1003,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->load_status = 0; 
   
   sema_init(&t->page_fault_sema, 1);
+  lock_init(&t->supp_page_lock);
   
   list_push_back (&all_list, &t->allelem);
 }

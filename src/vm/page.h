@@ -15,7 +15,6 @@ enum page_status
 
 struct supp_page_key
  {
-   tid_t tid;
    void *vaddr;
  };
  
@@ -40,13 +39,16 @@ struct supp_page_entry
  };
  
 void supp_page_init(void);
-struct supp_page_entry *supp_page_lookup (tid_t tid, void *vaddr);
-void supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
+struct supp_page_entry* supp_page_lookup (struct thread* for_thread, void *vaddr);
+struct supp_page_entry* supp_page_insert_for_on_disk(struct thread* for_thread, void *vaddr, struct file *f,
     int off, int bytes_to_read, bool writable, bool is_mmapped);
-void supp_page_insert_for_on_stack(tid_t tid, void *vaddr);
+struct supp_page_entry* supp_page_insert_for_on_stack(struct thread* for_thread, void *vaddr);
 bool supp_page_bring_into_memory(void* addr, bool write);
-void supp_remove_entry(struct supp_page_entry* spe);
+void supp_remove_entry(struct thread* for_thread, void *vaddr);
+unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
+bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
+  void *aux UNUSED);
 
-struct lock supp_page_lock;
+//struct lock supp_page_lock;
 
 #endif /* vm/page.h */

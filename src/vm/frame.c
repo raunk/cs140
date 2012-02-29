@@ -207,11 +207,13 @@ frame_find_eviction_candidate(void)
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
           /* Reference bit is cleared. */
-          struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
+          lock_acquire(&frm->owner->supp_page_lock);
+          struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner, frm->user_address);
           if(supp_pg == NULL) {
             PANIC("frame_find_eviction_candidate: COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n",
                 frm->user_address);
           }
+          lock_release(&frm->owner->supp_page_lock);
           
           if(supp_pg->f != NULL) {
             /* It's a file page */
@@ -269,8 +271,7 @@ frame_cleanup_for_thread(struct thread* t)
     struct frame *frm = list_entry (e, struct frame, elem);
 
     if (frm->owner == t) {
-      struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
-      supp_remove_entry(supp_e);
+      supp_remove_entry(t, frm->user_address);
       
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
 

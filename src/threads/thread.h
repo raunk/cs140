@@ -133,6 +133,9 @@ struct thread
     int load_status;    /* Load status for this thread */
     
     struct semaphore page_fault_sema;
+    
+    struct lock supp_page_lock;
+    struct hash supp_page_table;
 
     struct file* executing_file;
 

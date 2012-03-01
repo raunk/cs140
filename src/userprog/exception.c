@@ -186,11 +186,6 @@ page_fault (struct intr_frame *f)
 
 //  printf("FAULT ON %p\n", fault_addr);
 
-  if(fault_addr >= 0xcccccccc)
-    {
-      PANIC("stop!\n");
-    }
-
   /* Count page faults. */
   page_fault_cnt++;
 

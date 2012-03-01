@@ -35,6 +35,7 @@ struct supp_page_entry
    int swap[8];
    
    struct hash_elem hash_elem;
+   struct list_elem list_elem; 
    
    struct supp_page_key key;
  };

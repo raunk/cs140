@@ -199,7 +199,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       }
           
       swap_read_from_slot(entry->swap, kpage);
-      swap_free_slot(entry->swap);
+      swap_free_slot(entry);
       
       bool is_dirty = pagedir_is_dirty(thread_current()->pagedir, upage);
       /* Add the page to the process's address space. */

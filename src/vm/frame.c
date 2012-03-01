@@ -138,7 +138,7 @@ static void
 frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
 {
   supp_pg->status = PAGE_IN_SWAP;
-  bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
+  bool written = swap_write_to_slot(frm->physical_address, supp_pg);
   if(!written) {
     // TODO: kill process, free resources
     PANIC("OUT OF SWAP SPACE.\n");
@@ -253,7 +253,6 @@ frame_find_eviction_candidate(void)
 void
 frame_cleanup_for_thread(struct thread* t)
 {
-//  printf("Cleaning up \n");
   lock_acquire (&frame_lock);
 
   if(list_empty(&frame_list)) {
@@ -261,6 +260,7 @@ frame_cleanup_for_thread(struct thread* t)
     return;
   }
   
+  /* Free frames occupied by pages belonging to thread t. */
   struct list_elem *e = list_front (&frame_list);
   struct list_elem *next;
   while(e != list_end (&frame_list)) {
@@ -278,6 +278,9 @@ frame_cleanup_for_thread(struct thread* t)
     }
     e = next;
   }
+  
+  /* Free swap slots occupied by pages belonging to t. */
+  swap_free_slots_for_thread(t);
   
   lock_release (&frame_lock);
 }

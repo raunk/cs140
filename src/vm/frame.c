@@ -38,7 +38,6 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
   
   /* Attempt to allocate a page, if this comes back null then
      we need to evict */
-  //debug();
   void *page = palloc_get_page(flags);
   struct frame* frm;
   if(page == NULL) {

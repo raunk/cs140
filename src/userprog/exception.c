@@ -207,8 +207,6 @@ page_fault (struct intr_frame *f)
   //           not_present ? "not present" : "rights violation",
   //           write ? "writing" : "reading",
   //           user ? "user" : "kernel");
-  if(!user)
-    printf("PAGE FAULT IN KERNEL!!!\n");
   
   /* NULL pointer dereferenced */
   if(fault_addr == 0){

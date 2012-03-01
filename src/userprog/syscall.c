@@ -178,27 +178,22 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
     struct thread *t = thread_current ();
     // Check that memory has been mapped
     
-    //return;
-    debug();
     
     if(pagedir_get_page (t->pagedir, ptr) != NULL) {
       sema_up(&page_fault_sema);
       return;
     }
-    debug();
     
     if(supp_page_bring_into_memory(ptr, false)) {
        sema_up(&page_fault_sema);
        return;
     }
-    debug();
     //sema_up(&page_fault_sema);
     // If it looks like a stack pointer, give them a new
     // stack page and return 
     //sema_down(&page_fault_sema);
     if(smells_like_stack_pointer(f->esp, ptr))
       {
-        debug();
         install_stack_page(pg_round_down(ptr));
         sema_up(&page_fault_sema);
         return;

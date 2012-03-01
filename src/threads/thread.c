@@ -17,6 +17,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "userprog/exception.h"
 #endif
 
 #ifdef DEBUG
@@ -576,7 +577,7 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
-
+    
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
@@ -702,7 +703,9 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
+  
+  sema_down(&page_fault_sema);
+  
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -1125,7 +1128,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
-
+      
       struct list_elem* elem; 
       struct thread* child;
       lock_acquire(&prev->inheritance_lock);
@@ -1152,7 +1155,9 @@ thread_schedule_tail (struct thread *prev)
         thread_free_file_descriptor_elems(prev);
         palloc_free_page(prev);
       }
+      sema_up(&page_fault_sema);
     }
+    
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and

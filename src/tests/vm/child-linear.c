@@ -29,8 +29,13 @@ main (int argc, char *argv[])
 
   /* Check that it's all zeros. */
   for (i = 0; i < SIZE; i++)
-    if (buf[i] != '\0')
+    if (buf[i] != '\0') {
+      printf("addr: %p\n", buf+i-1);
+      printf("addr: %p\n", buf+i);
+      printf("byte: %p", buf[i]);
+      printf("bye: %p\n", buf[i+20]);
       fail ("byte %zu != 0", i);
+    }
 
   return 0x42;
 }

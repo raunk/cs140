@@ -17,8 +17,6 @@
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
-struct semaphore page_fault_sema;
-
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
 
@@ -136,8 +134,8 @@ void
 install_stack_page(void* upage)
 {
     /* Add this page to supp page table if not there */
+    //sema_down(&page_fault_sema);
     struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current()->tid, upage);
-    
     struct frame* frm = frame_get_page (PAL_USER, upage);
     uint8_t *kpage = frm->physical_address;
     
@@ -152,6 +150,7 @@ install_stack_page(void* upage)
      }
     // printf("FINISHED INSTALLING PAGE!\n");
     frm->is_evictable = true;
+    //sema_up(&page_fault_sema);
 }
 
 
@@ -182,8 +181,10 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-
+  intr_enable ();
+  
   sema_down(&page_fault_sema);
+  
 //  printf("FAULT ON %p\n", fault_addr);
 
 /*  if(fault_addr >= 0xcccccccc)
@@ -206,6 +207,8 @@ page_fault (struct intr_frame *f)
   //           not_present ? "not present" : "rights violation",
   //           write ? "writing" : "reading",
   //           user ? "user" : "kernel");
+  if(!user)
+    printf("PAGE FAULT IN KERNEL!!!\n");
   
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
@@ -218,7 +221,6 @@ page_fault (struct intr_frame *f)
   
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
-  intr_enable ();
   
   /* Check supplemental page table for page info. */
   // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));

@@ -9,16 +9,28 @@
 #include "userprog/process.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
+#include "userprog/exception.h"
 #include "threads/vaddr.h"
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "vm/swap.h"
+#include <random.h>
 
 static unsigned supp_page_hash (const struct hash_elem *p_, void *aux UNUSED);
 static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
   void *aux UNUSED);
   
 static struct hash supp_page_table;
+
+/* Call thread_yield with probability 1/2 */
+void
+debug()
+{
+  unsigned long n = random_ulong() % 2;
+  if(n == 0) {
+    thread_yield();
+  }
+}
 
 void
 supp_remove_entry(tid_t tid, void* vaddr)
@@ -156,6 +168,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
 bool 
 supp_page_bring_into_memory(void* addr, bool write)
 {
+  //sema_down(&page_fault_sema);
   void *upage = pg_round_down(addr);
   //printf("Attempting to lookup %p in supp page table..\n", upage);
   lock_acquire(&supp_page_lock);
@@ -172,7 +185,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       {
         exit_current_process(-1);
       } 
-
+      //debug();
     /* Get a page of memory. */
      struct frame* frm = frame_get_page (PAL_USER, upage);
      uint8_t *kpage = frm->physical_address;
@@ -190,7 +203,7 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
-      memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
+      //memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
       
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
@@ -202,6 +215,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       frm->is_evictable = true;
       // printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
       //       printf("--------------- End reading page from disk ------------------------\n\n");
+      //sema_up(&page_fault_sema);
       return true; 
       
     } else if(entry->status == PAGE_IN_SWAP) {
@@ -218,12 +232,14 @@ supp_page_bring_into_memory(void* addr, bool write)
       swap_free_slot(entry->swap);
       
       bool is_dirty = pagedir_is_dirty(thread_current()->pagedir, upage);
+      debug();
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
       //   printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
+       debug();
       if (is_dirty) {
         /* If page was dirty before writing to swap, then set its dirty bit back to 1. */
         pagedir_set_dirty(thread_current()->pagedir, upage, true);
@@ -235,9 +251,11 @@ supp_page_bring_into_memory(void* addr, bool write)
       // printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
       //       printf("Page is valid up to %p\n", (upage+PGSIZE));
       //       printf("--------------- End reading out of swap ------------------------\n\n");
+      //sema_up(&page_fault_sema);
       return true;
     }
   }
+  //sema_up(&page_fault_sema);
 //  printf("EXITING ON ADDRESS: %p\n", addr);
   return false;
 }

@@ -1,9 +1,11 @@
 #include "vm/frame.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/interrupt.h"
 #include <debug.h>
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
+#include "userprog/exception.h"
 #include "threads/vaddr.h"
 #include "vm/page.h"
 #include "vm/swap.h"
@@ -29,18 +31,19 @@ frame_init(size_t user_page_limit)
 
 struct frame*
 frame_get_page(enum palloc_flags flags, void *uaddr)
-{
+{ 
   /* Ensure we are always getting from the user pool */
   uaddr = pg_round_down(uaddr);
   flags = PAL_USER | PAL_ZERO;
   
   /* Attempt to allocate a page, if this comes back null then
      we need to evict */
+  //debug();
   void *page = palloc_get_page(flags);
   struct frame* frm;
   if(page == NULL) {
     lock_acquire (&frame_lock);
-    
+
     frm = frame_find_eviction_candidate();
     frm->is_evictable = false;
     // printf("KPAGE: %d\n", *(int*)frm->physical_address);
@@ -85,6 +88,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
 void
 frame_free_user_page(void *vaddr)
 {
+  sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
   /* Search frame_list for struct frame mapped to page */
   struct list_elem *e;
@@ -102,6 +106,7 @@ frame_free_user_page(void *vaddr)
              free both the page and the struct frame */
         free_frame_and_check_clock(e, frm);
         lock_release (&frame_lock);
+        sema_up(&page_fault_sema);
         return;
       }
     }
@@ -114,6 +119,7 @@ frame_free_user_page(void *vaddr)
 void
 frame_free_page(void *page)
 {
+  sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
   
   page = pg_round_down(page);
@@ -129,6 +135,7 @@ frame_free_page(void *page)
            free both the page and the struct frame */
         free_frame_and_check_clock(e, frm);
         lock_release (&frame_lock);
+        sema_up(&page_fault_sema);
         return;
       }
     }
@@ -139,12 +146,12 @@ frame_free_page(void *page)
 static void
 frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
 {
-  supp_pg->status = PAGE_IN_SWAP;
   bool written = swap_write_to_slot(frm->physical_address, supp_pg->swap);
   if(!written) {
     // TODO: kill process, free resources
     PANIC("OUT OF SWAP SPACE.\n");
   }
+  supp_pg->status = PAGE_IN_SWAP;
 }
 
 
@@ -218,14 +225,21 @@ frame_find_eviction_candidate(void)
                 frm->user_address);
           }
           
+          
           if(supp_pg->f != NULL) {
             /* It's a file page */
-            if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
+            enum intr_level prev = intr_disable ();
+            bool dirty = pagedir_is_dirty (frm->owner->pagedir, frm->user_address);
+            if(dirty && supp_pg->is_mmapped)
+              pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
+            intr_set_level (prev);
+            
+            if(dirty) {
               if (supp_pg->is_mmapped) {
                 /* Mmapped file page has been modified, so write back to disk. */
                 ASSERT(supp_pg->writable);
                 safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
-                pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
+                
                 
                 /* Give page second chance. */
                 continue;
@@ -245,20 +259,20 @@ frame_find_eviction_candidate(void)
             frame_write_to_swap(frm, supp_pg);
           }
           
+          
           /* Choose to evict this frame. */
           pagedir_clear_page (frm->owner->pagedir, frm->user_address);
-          
           return frm;
         }
         frm->is_evictable = true;
       }
-      
 }
 
 void
 frame_cleanup_for_thread(struct thread* t)
 {
 //  printf("Cleaning up \n");
+  //sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
 
   if(list_empty(&frame_list)) {
@@ -275,7 +289,7 @@ frame_cleanup_for_thread(struct thread* t)
 
     if (frm->owner == t) {
       supp_remove_entry(t->tid, frm->user_address);
-      
+      debug();
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
 
       free_frame_and_check_clock(e, frm);
@@ -283,4 +297,5 @@ frame_cleanup_for_thread(struct thread* t)
     e = next;
   }
   lock_release (&frame_lock);
+  //sema_up(&page_fault_sema);
 }

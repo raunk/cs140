@@ -47,6 +47,8 @@ struct supp_page_entry * supp_page_insert_for_on_stack(tid_t tid, void *vaddr);
 bool supp_page_bring_into_memory(void* addr, bool write);
 void supp_remove_entry(tid_t tid, void* vaddr);
 
+void debug(void);
+
 struct lock supp_page_lock;
 
 #endif /* vm/page.h */

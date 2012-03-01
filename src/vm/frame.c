@@ -225,14 +225,16 @@ frame_find_eviction_candidate(void)
                 frm->user_address);
           }
           
+          enum intr_level prev = intr_disable ();
+          bool dirty = pagedir_is_dirty (frm->owner->pagedir, frm->user_address);
+          if(dirty && supp_pg->is_mmapped)
+            pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
+          pagedir_clear_page (frm->owner->pagedir, frm->user_address);
+          intr_set_level (prev);
+          
           
           if(supp_pg->f != NULL) {
             /* It's a file page */
-            enum intr_level prev = intr_disable ();
-            bool dirty = pagedir_is_dirty (frm->owner->pagedir, frm->user_address);
-            if(dirty && supp_pg->is_mmapped)
-              pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
-            intr_set_level (prev);
             
             if(dirty) {
               if (supp_pg->is_mmapped) {
@@ -242,7 +244,7 @@ frame_find_eviction_candidate(void)
                 
                 
                 /* Give page second chance. */
-                continue;
+                //continue;
               } else {
                 /* File page is not mmapped, so write to swap.*/
                 //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
@@ -261,7 +263,7 @@ frame_find_eviction_candidate(void)
           
           
           /* Choose to evict this frame. */
-          pagedir_clear_page (frm->owner->pagedir, frm->user_address);
+          
           return frm;
         }
         frm->is_evictable = true;

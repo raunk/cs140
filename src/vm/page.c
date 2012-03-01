@@ -5,6 +5,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
@@ -230,20 +231,20 @@ supp_page_bring_into_memory(void* addr, bool write)
           
       swap_read_from_slot(entry->swap, kpage);
       swap_free_slot(entry->swap);
+            
+      enum intr_level prev = intr_disable ();
+      bool is_dirty = pagedir_is_dirty (thread_current()->pagedir, upage);
       
-      bool is_dirty = pagedir_is_dirty(thread_current()->pagedir, upage);
-      debug();
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
       //   printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
-       debug();
-      if (is_dirty) {
-        /* If page was dirty before writing to swap, then set its dirty bit back to 1. */
-        pagedir_set_dirty(thread_current()->pagedir, upage, true);
-      }
+       
+       if(is_dirty)
+         pagedir_set_dirty (thread_current()->pagedir, upage, true);
+       intr_set_level (prev);
       
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;

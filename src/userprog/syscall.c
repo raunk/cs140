@@ -198,6 +198,7 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
         sema_up(&page_fault_sema);
         return;
       }
+    sema_up(&page_fault_sema);
   }
 
 

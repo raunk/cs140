@@ -269,14 +269,18 @@ frame_cleanup_for_thread(struct thread* t)
     struct frame *frm = list_entry (e, struct frame, elem);
 
     if (frm->owner == t) {
-      struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
-      supp_remove_entry(supp_e);
-      
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
-
-      free_frame_and_check_clock(e, frm);
+      
+      struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
+      if (supp_e->status == PAGE_IN_MEM)
+        free_frame_and_check_clock(e, frm);
+      else if(supp_e->status == PAGE_IN_SWAP)
+        swap_free_slot(supp_e->swap);
+      
+      supp_remove_entry(supp_e);
     }
     e = next;
   }
+  
   lock_release (&frame_lock);
 }

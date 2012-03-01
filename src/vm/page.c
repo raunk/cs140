@@ -25,6 +25,7 @@ supp_remove_entry(struct supp_page_entry* spe)
 {
   lock_acquire(&supp_page_lock);
   hash_delete(&supp_page_table, &spe->hash_elem);
+  free(spe);
   lock_release(&supp_page_lock);
 }
 

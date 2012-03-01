@@ -57,7 +57,9 @@ process_execute (const char *file_name)
   sema_down(&thread_current ()->is_loaded_sem);
   // make sure child thread loaded successfully
   if (tid != TID_ERROR) {
+    lock_acquire(&thread_current()->inheritance_lock);
     struct thread* child_thr = thread_get_by_child_tid(tid);
+    lock_release(&thread_current()->inheritance_lock);
       // Checking the exit status is not enough. A thread could
       // have loaded properly but then exited due to an error. 
       // However, here we only return a failure if it did 
@@ -227,15 +229,21 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
+  lock_acquire(&thread_current()->inheritance_lock);
   struct thread* thread = thread_get_by_child_tid(child_tid);
-  if(!thread) 
+  
+  if(!thread) {
+    lock_release(&thread_current()->inheritance_lock);
     return -1; // TID was invalid
+  }
   
   if(thread->waited_on_by != -1) { 
     // cur thread already waits
+    lock_release(&thread_current()->inheritance_lock);
     return -1;
   }
   thread->waited_on_by = thread_current ()->tid;
+  lock_release(&thread_current()->inheritance_lock);
   
   sema_down(&thread->is_dying);
   int ret = thread->exit_status;

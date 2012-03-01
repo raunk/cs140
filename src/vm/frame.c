@@ -48,7 +48,6 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     // printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
     //     printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
     //
-    lock_release (&frame_lock);
     
     memset (frm->physical_address, 0, PGSIZE);
     
@@ -56,6 +55,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     frm->user_address = uaddr;
     
     page = frm->physical_address;
+    lock_release (&frame_lock);
     
   } else {
     lock_acquire (&frame_lock);
@@ -69,12 +69,12 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     frm->owner = thread_current ();
     
     list_push_front(&frame_list, &frm->elem);
-    lock_release (&frame_lock);
     
     /* Setup the pointer to be used in the clock algorithm */
     if(clock_ptr == NULL) {
       clock_ptr = list_begin (&frame_list);
     }
+    lock_release (&frame_lock);
   }
   //printf("Returning physical page %p for user page %p\n", page, uaddr);
   //frm->is_evictable = true;
@@ -85,6 +85,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
 void
 frame_free_user_page(void *vaddr)
 {
+  lock_acquire (&frame_lock);
   /* Search frame_list for struct frame mapped to page */
   struct list_elem *e;
 
@@ -100,6 +101,7 @@ frame_free_user_page(void *vaddr)
         /* Remove the struct frame from the frame list and
              free both the page and the struct frame */
         free_frame_and_check_clock(e, frm);
+        lock_release (&frame_lock);
         return;
       }
     }
@@ -207,7 +209,10 @@ frame_find_eviction_candidate(void)
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
           /* Reference bit is cleared. */
+          lock_acquire(&supp_page_lock);
           struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
+          lock_release(&supp_page_lock);
+          
           if(supp_pg == NULL) {
             PANIC("frame_find_eviction_candidate: COULDN'T FIND PAGE %p IN SUPP PAGE TABLE!\n",
                 frm->user_address);
@@ -231,9 +236,8 @@ frame_find_eviction_candidate(void)
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
-              //supp_pg->status = PAGE_ON_DISK;
+              supp_pg->status = PAGE_ON_DISK;
               //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);              
-              frame_write_to_swap(frm, supp_pg);              
             }
           } else {
             /* It's a stack page, we must write it to swap */
@@ -270,8 +274,7 @@ frame_cleanup_for_thread(struct thread* t)
     struct frame *frm = list_entry (e, struct frame, elem);
 
     if (frm->owner == t) {
-      struct supp_page_entry *supp_e = supp_page_lookup (t->tid, frm->user_address);
-      supp_remove_entry(supp_e);
+      supp_remove_entry(t->tid, frm->user_address);
       
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
 

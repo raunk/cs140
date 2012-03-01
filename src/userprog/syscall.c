@@ -301,7 +301,10 @@ unmap_file_helper(struct mmap_elem* map_elem)
   
   while(write_bytes > 0)
   {
+    lock_acquire(&supp_page_lock);
     struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+    lock_release(&supp_page_lock);
+    
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
@@ -314,7 +317,7 @@ unmap_file_helper(struct mmap_elem* map_elem)
           frame_free_user_page(cur_addr);
           pagedir_clear_page(thread_current()->pagedir, cur_addr);
       }  
-    supp_remove_entry(sp_entry);
+    supp_remove_entry(cur_tid, cur_addr);
 
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;
@@ -444,9 +447,10 @@ syscall_mmap(struct intr_frame *f)
         }
     }
 
-
+  lock_acquire(&supp_page_lock);
   struct supp_page_entry* spe = supp_page_lookup(thread_current()->tid,
                                                   addr);
+  lock_release(&supp_page_lock);
   // Error if we are writing over a location that is already in the 
   // supplementary page table
   if(spe != NULL)

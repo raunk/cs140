@@ -985,6 +985,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
   sema_init(&t->is_loaded_sem, 0);
   sema_init(&t->is_dying, 0);
+  lock_init(&t->inheritance_lock);
   
   // use running_thread since current thread might not have status
   // set to running yet
@@ -1127,6 +1128,7 @@ thread_schedule_tail (struct thread *prev)
 
       struct list_elem* elem; 
       struct thread* child;
+      lock_acquire(&prev->inheritance_lock);
       while(!list_empty(&prev->child_list)) {
         elem = list_pop_front(&prev->child_list);
         child = list_entry(elem, struct thread, child_elem);
@@ -1140,6 +1142,7 @@ thread_schedule_tail (struct thread *prev)
           child->parent = NULL;
         }
       }
+      lock_release(&prev->inheritance_lock);
       
       /* Prev has been orphaned so kill it now */
       if(prev->parent == NULL) {

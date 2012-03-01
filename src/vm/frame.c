@@ -225,45 +225,40 @@ frame_find_eviction_candidate(void)
                 frm->user_address);
           }
           
-          enum intr_level prev = intr_disable ();
-          bool dirty = pagedir_is_dirty (frm->owner->pagedir, frm->user_address);
-          if(dirty && supp_pg->is_mmapped)
-            pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
-          pagedir_clear_page (frm->owner->pagedir, frm->user_address);
-          intr_set_level (prev);
-          
-          
           if(supp_pg->f != NULL) {
             /* It's a file page */
             
-            if(dirty) {
+            if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
               if (supp_pg->is_mmapped) {
                 /* Mmapped file page has been modified, so write back to disk. */
                 ASSERT(supp_pg->writable);
                 safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
                 
+                pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
                 
                 /* Give page second chance. */
-                //continue;
+                continue;
               } else {
                 /* File page is not mmapped, so write to swap.*/
                 //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
+                pagedir_clear_page (frm->owner->pagedir, frm->user_address);
                 frame_write_to_swap(frm, supp_pg);
               }
             } else {
               /* It's a file page that isn't dirty, we can just throw it out. */
+              pagedir_clear_page (frm->owner->pagedir, frm->user_address);
               supp_pg->status = PAGE_ON_DISK;
               //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);              
             }
           } else {
             /* It's a stack page, we must write it to swap */
             //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
+            pagedir_clear_page (frm->owner->pagedir, frm->user_address);
             frame_write_to_swap(frm, supp_pg);
           }
           
           
           /* Choose to evict this frame. */
-          
           return frm;
         }
         frm->is_evictable = true;

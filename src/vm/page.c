@@ -231,8 +231,7 @@ supp_page_bring_into_memory(void* addr, bool write)
           
       swap_read_from_slot(entry->swap, kpage);
       swap_free_slot(entry->swap);
-            
-      enum intr_level prev = intr_disable ();
+      
       bool is_dirty = pagedir_is_dirty (thread_current()->pagedir, upage);
       
       /* Add the page to the process's address space. */
@@ -244,7 +243,6 @@ supp_page_bring_into_memory(void* addr, bool write)
        
        if(is_dirty)
          pagedir_set_dirty (thread_current()->pagedir, upage, true);
-       intr_set_level (prev);
       
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;

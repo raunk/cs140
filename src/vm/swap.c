@@ -4,6 +4,7 @@
 #include "devices/block.h"
 #include "threads/synch.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 #include "vm/page.h"
 #include "vm/swap.h"
 
@@ -25,13 +26,12 @@ swap_init(void)
 {
   swap_block = block_get_role(BLOCK_SWAP);
   map = bitmap_create(block_size(swap_block));
+  if (map == NULL) {
+    exit_current_process(-1);
+  }
   
   lock_init (&swap_lock);
   list_init (&supp_page_entries);
-
-  if (map == NULL) {
-    PANIC("Could not allocate memory for swap table data structure. ");
-  }
 }
 
 /* If a free swap slot is found, flags the slot as in-use and

@@ -357,7 +357,7 @@ handle_unmapped_files(void)
 
 /* Exit the current process with status STATUS. Set the exit
  * status of this thead. Also clean up file resources and 
- * singal this thread is dying to any waiting threads using
+ * signal this thread is dying to any waiting threads using
  * sema_up. */
 void
 exit_current_process(int status)
@@ -368,6 +368,9 @@ exit_current_process(int status)
 
   /* Unmap any files that were not explicitly unmapped */
   handle_unmapped_files();
+  
+  /* Clean up all resources (frames, swap slots) held by the thread. */
+  frame_cleanup_for_thread(cur);
   
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);

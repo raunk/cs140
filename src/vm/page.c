@@ -86,6 +86,7 @@ void
 supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
 {
   lock_acquire(&supp_page_lock);
+  
   struct supp_page_entry *entry = supp_page_lookup (thread_current()->tid, vaddr);
   if(entry != NULL) {
     lock_release(&supp_page_lock);
@@ -94,12 +95,11 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry = (struct supp_page_entry*) 
                             malloc(sizeof(struct supp_page_entry));
   if (entry == NULL) {
-    //TODO
+    exit_current_process(-1);
   }
   entry->key.tid = tid;
   entry->key.vaddr = vaddr;
   
-  //lock_acquire(&supp_page_lock);
   struct hash_elem *e = hash_insert(&supp_page_table, &entry->hash_elem);
   
   struct supp_page_entry *entry_to_set = entry;
@@ -114,6 +114,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   entry_to_set->status = PAGE_IN_MEM;
   entry_to_set->writable = true;
   entry_to_set->is_mmapped = false;
+  
   lock_release(&supp_page_lock);
 }
 
@@ -122,6 +123,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
     int off, int bytes_to_read, bool writable, bool is_mmapped)
 {
   lock_acquire(&supp_page_lock);
+ 
   struct supp_page_entry *entry = supp_page_lookup (thread_current()->tid, vaddr);
   if(entry != NULL) {
     lock_release(&supp_page_lock);
@@ -131,7 +133,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
                             malloc(sizeof(struct supp_page_entry));
   if (entry == NULL) {
     lock_release(&supp_page_lock);
-    PANIC("supp_page_insert_for_on_disk: ran out of space");
+    exit_current_process(-1);
   }
   
   entry->key.tid = tid;
@@ -151,6 +153,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   entry_to_set->bytes_to_read = bytes_to_read;
   entry_to_set->writable = writable;
   entry_to_set->is_mmapped = is_mmapped;
+  
   lock_release(&supp_page_lock);
 }
 
@@ -173,7 +176,6 @@ supp_page_bring_into_memory(void* addr, bool write)
     /* Get a page of memory. */
      struct frame* frm = frame_get_page (PAL_USER, upage);
      uint8_t *kpage = frm->physical_address;
-     
      if (kpage == NULL) {
        exit_current_process(-1); 
      }
@@ -185,14 +187,16 @@ supp_page_bring_into_memory(void* addr, bool write)
         safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
        {
          frame_free_page (kpage);
-         PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
+         /* Failed to read all data from file. Kill the process. */
+         exit_current_process(-1);
        }
       
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
          frame_free_page (kpage);
-         PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
+         /* Failed to install the page. Kill the process. */
+          exit_current_process(-1);
        }
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;
@@ -205,7 +209,7 @@ supp_page_bring_into_memory(void* addr, bool write)
       struct frame* frm = frame_get_page (PAL_USER, upage);
       uint8_t *kpage = frm->physical_address;
       if (kpage == NULL) {
-       //exit_current_process(-1); // TODO: check if we should be exiting process here
+       exit_current_process(-1);
       }
           
       swap_read_from_slot(entry->swap, kpage);
@@ -219,8 +223,8 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
        }
        
-       if(is_dirty)
-         pagedir_set_dirty (thread_current()->pagedir, upage, true);
+      if(is_dirty)
+        pagedir_set_dirty (thread_current()->pagedir, upage, true);
       
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;

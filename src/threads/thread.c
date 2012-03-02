@@ -17,6 +17,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "userprog/exception.h"
 #endif
 
 #ifdef DEBUG
@@ -576,7 +577,7 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
-
+    
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
@@ -702,7 +703,9 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
+  
+  sema_down(&page_fault_sema);
+  
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -985,6 +988,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
   sema_init(&t->is_loaded_sem, 0);
   sema_init(&t->is_dying, 0);
+  lock_init(&t->inheritance_lock);
   
   // use running_thread since current thread might not have status
   // set to running yet
@@ -998,7 +1002,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = 0;
   t->load_status = 0; 
   
-  sema_init(&t->page_fault_sema, 1);
+//  sema_init(&t->page_fault_sema, 1);
   
   list_push_back (&all_list, &t->allelem);
 }
@@ -1124,9 +1128,10 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
-
+      
       struct list_elem* elem; 
       struct thread* child;
+      lock_acquire(&prev->inheritance_lock);
       while(!list_empty(&prev->child_list)) {
         elem = list_pop_front(&prev->child_list);
         child = list_entry(elem, struct thread, child_elem);
@@ -1140,6 +1145,7 @@ thread_schedule_tail (struct thread *prev)
           child->parent = NULL;
         }
       }
+      lock_release(&prev->inheritance_lock);
       
       /* Prev has been orphaned so kill it now */
       if(prev->parent == NULL) {
@@ -1149,7 +1155,9 @@ thread_schedule_tail (struct thread *prev)
         thread_free_file_descriptor_elems(prev);
         palloc_free_page(prev);
       }
+      sema_up(&page_fault_sema);
     }
+    
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and

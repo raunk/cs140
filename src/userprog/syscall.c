@@ -174,25 +174,33 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
 {
   // Check that it is within user memory
   if(is_user_vaddr(ptr)) {
+    sema_down(&page_fault_sema);
     struct thread *t = thread_current ();
     // Check that memory has been mapped
     
-    //return;
+    
     if(pagedir_get_page (t->pagedir, ptr) != NULL) {
+      sema_up(&page_fault_sema);
       return;
     }
-
+    
     if(supp_page_bring_into_memory(ptr, false)) {
+       sema_up(&page_fault_sema);
        return;
     }
+    //sema_up(&page_fault_sema);
+    // If it looks like a stack pointer, give them a new
+    // stack page and return 
+    //sema_down(&page_fault_sema);
+    if(smells_like_stack_pointer(f->esp, ptr))
+      {
+        install_stack_page(pg_round_down(ptr));
+        sema_up(&page_fault_sema);
+        return;
+      }
+    sema_up(&page_fault_sema);
   }
-  // If it looks like a stack pointer, give them a new
-  // stack page and return 
-  if(smells_like_stack_pointer(f->esp, ptr))
-    {
-      install_stack_page(pg_round_down(ptr));
-      return;
-    }
+
 
   // Pointer is invalid if we get here
   exit_current_process(-1);
@@ -213,6 +221,7 @@ get_nth_parameter(void* esp, int param_num, int datasize,
   void* param = esp + param_num * sizeof(char*);
   syscall_check_user_pointer(param, f);
   syscall_check_user_pointer(param + datasize - 1, f);
+  
   return param;
 }
 
@@ -301,7 +310,10 @@ unmap_file_helper(struct mmap_elem* map_elem)
   
   while(write_bytes > 0)
   {
+    lock_acquire(&supp_page_lock);
     struct supp_page_entry* sp_entry = supp_page_lookup(cur_tid, cur_addr);
+    lock_release(&supp_page_lock);
+    
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
@@ -314,7 +326,7 @@ unmap_file_helper(struct mmap_elem* map_elem)
           frame_free_user_page(cur_addr);
           pagedir_clear_page(thread_current()->pagedir, cur_addr);
       }  
-    supp_remove_entry(sp_entry);
+    supp_remove_entry(cur_tid, cur_addr);
 
     write_bytes -= page_write_bytes;    
     offset += PGSIZE;
@@ -444,9 +456,10 @@ syscall_mmap(struct intr_frame *f)
         }
     }
 
-
+  lock_acquire(&supp_page_lock);
   struct supp_page_entry* spe = supp_page_lookup(thread_current()->tid,
                                                   addr);
+  lock_release(&supp_page_lock);
   // Error if we are writing over a location that is already in the 
   // supplementary page table
   if(spe != NULL)

@@ -132,7 +132,7 @@ swap_free_slots_for_thread(struct thread *t)
       
       pagedir_clear_page (t->pagedir, page->key.vaddr);
       
-      supp_remove_entry(page);
+      supp_remove_entry(t->tid, page->key.vaddr);
     }
     e = next;
   }

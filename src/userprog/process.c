@@ -9,6 +9,7 @@
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
 #include "userprog/tss.h"
+#include "userprog/exception.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -57,7 +58,9 @@ process_execute (const char *file_name)
   sema_down(&thread_current ()->is_loaded_sem);
   // make sure child thread loaded successfully
   if (tid != TID_ERROR) {
+    lock_acquire(&thread_current()->inheritance_lock);
     struct thread* child_thr = thread_get_by_child_tid(tid);
+    lock_release(&thread_current()->inheritance_lock);
       // Checking the exit status is not enough. A thread could
       // have loaded properly but then exited due to an error. 
       // However, here we only return a failure if it did 
@@ -227,15 +230,21 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
+  lock_acquire(&thread_current()->inheritance_lock);
   struct thread* thread = thread_get_by_child_tid(child_tid);
-  if(!thread) 
+  
+  if(!thread) {
+    lock_release(&thread_current()->inheritance_lock);
     return -1; // TID was invalid
+  }
   
   if(thread->waited_on_by != -1) { 
     // cur thread already waits
+    lock_release(&thread_current()->inheritance_lock);
     return -1;
   }
   thread->waited_on_by = thread_current ()->tid;
+  lock_release(&thread_current()->inheritance_lock);
   
   sema_down(&thread->is_dying);
   int ret = thread->exit_status;
@@ -249,9 +258,10 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
-  frame_cleanup_for_thread(cur);
+  //debug();
   
+  frame_cleanup_for_thread(cur);
+  //debug();
   handle_unmapped_files();
 
   /* Destroy the current process's page directory and switch back
@@ -555,7 +565,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
+      //debug();
       supp_page_insert_for_on_disk(thread_current()->tid, upage, 
                 file, ofs, page_read_bytes, writable, false);
 
@@ -573,6 +583,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
+  sema_down(&page_fault_sema);
   uint8_t *kpage;
   bool success = false;
   
@@ -584,21 +595,16 @@ setup_stack (void **esp)
     {
       success = install_page (uaddr, kpage, true);
       if (success) {
-        
+        //debug();
         /* Add this page to supp page table if not there */
-        lock_acquire(&supp_page_lock);
-        struct supp_page_entry *supp_pg = supp_page_lookup (thread_current()->tid, uaddr);
-        if(supp_pg == NULL) {
-          supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
-        }
-        lock_release(&supp_page_lock);
-        
+        struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
         frm->is_evictable = true;
         *esp = PHYS_BASE;
       } else {
         frame_free_page (kpage);
       }
     }
+  sema_up(&page_fault_sema);
   return success;
 }
 

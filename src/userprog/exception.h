@@ -14,5 +14,7 @@ void exception_print_stats (void);
 bool smells_like_stack_pointer(void* esp, void* ptr);
 void install_stack_page(void* upage);
 
+struct semaphore page_fault_sema;
+
 
 #endif /* userprog/exception.h */

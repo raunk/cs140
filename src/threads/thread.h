@@ -121,6 +121,8 @@ struct thread
                                        successfully loaded or not */
     struct semaphore is_dying;      /* Used to signal a parent process 
                                        that might be waiting on cur process */
+                                       
+    struct lock inheritance_lock;
 
     struct list file_descriptors;   /* List of open file descriptors */
     int next_fd;
@@ -132,7 +134,6 @@ struct thread
     int exit_status;    /* Exit status for this thread */
     int load_status;    /* Load status for this thread */
     
-    struct semaphore page_fault_sema;
 
     struct file* executing_file;
 

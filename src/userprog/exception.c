@@ -202,16 +202,13 @@ page_fault (struct intr_frame *f)
   
   /* Check supplemental page table for page info. */
   if(supp_page_bring_into_memory(fault_addr, write)) {
-     sema_up(&page_fault_sema);
-     return;
-  } else {
-    if(smells_like_stack_pointer(f->esp, fault_addr))
-      {
-        void *upage = pg_round_down(fault_addr);
-        install_stack_page(upage);
-        sema_up(&page_fault_sema);
-        return;
-      }
+    sema_up(&page_fault_sema);
+    return;
+  } else if(smells_like_stack_pointer(f->esp, fault_addr)) {
+    void *upage = pg_round_down(fault_addr);
+    install_stack_page(upage);
+    sema_up(&page_fault_sema);
+    return;
   }
 
   /* If we had no page table information here, and it wasn't a stack pointer,

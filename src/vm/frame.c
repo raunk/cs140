@@ -55,7 +55,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
   } else {
     frm = (struct frame*) malloc(sizeof(struct frame));
     if(frm == NULL) {
-      PANIC ("frame_get: WE RAN OUT OF MALLOC SPACE. SHIT!\n");
+      exit_current_process(-1);
     }
     frm->is_evictable = false;
     frm->physical_address = page;
@@ -140,8 +140,8 @@ frame_write_to_swap(struct frame *frm, struct supp_page_entry *supp_pg)
   supp_pg->status = PAGE_IN_SWAP;
   bool written = swap_write_to_slot(frm->physical_address, supp_pg);
   if(!written) {
-    // TODO: kill process, free resources
-    PANIC("OUT OF SWAP SPACE.\n");
+    /* Ran out of swap space. Kill the process. */
+    exit_current_process(-1);
   }
   supp_pg->status = PAGE_IN_SWAP;
 }
@@ -194,6 +194,7 @@ frame_find_eviction_candidate(void)
           pagedir_set_accessed(frm->owner->pagedir, frm->user_address, false);
         } else {
           /* Reference bit is cleared. */
+          
           lock_acquire(&supp_page_lock);
           struct supp_page_entry *supp_pg = supp_page_lookup (frm->owner->tid, frm->user_address);
           lock_release(&supp_page_lock);
@@ -203,22 +204,24 @@ frame_find_eviction_candidate(void)
                 frm->user_address);
           }
           
-          if(supp_pg->f != NULL) {
+          if(supp_pg->f == NULL) {
+            /* It's a stack page, we must write it to swap */
+            pagedir_clear_page (frm->owner->pagedir, frm->user_address);
+            frame_write_to_swap(frm, supp_pg);
+          } else {
             /* It's a file page */
             
             if(pagedir_is_dirty (frm->owner->pagedir, frm->user_address)) {
               if (supp_pg->is_mmapped) {
-                /* Mmapped file page has been modified, so write back to disk. */
+                /* Dirty mmap'ed file page, so write back to disk. */
                 ASSERT(supp_pg->writable);
                 safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
-                
                 pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
                 
                 /* Give page second chance. */
                 continue;
               } else {
-                /* File page is not mmapped, so write to swap.*/
-                //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
+                /* Dirty file page is not mmapped, so write to swap.*/
                 pagedir_clear_page (frm->owner->pagedir, frm->user_address);
                 frame_write_to_swap(frm, supp_pg);
               }
@@ -226,12 +229,7 @@ frame_find_eviction_candidate(void)
               /* It's a file page that isn't dirty, we can just throw it out. */
               pagedir_clear_page (frm->owner->pagedir, frm->user_address);
               supp_pg->status = PAGE_ON_DISK;
-              //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);              
             }
-          } else {
-            /* It's a stack page, we must write it to swap */
-            pagedir_clear_page (frm->owner->pagedir, frm->user_address);
-            frame_write_to_swap(frm, supp_pg);
           }
           
           /* Choose to evict this frame. */

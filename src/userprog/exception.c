@@ -38,8 +38,6 @@ static void page_fault (struct intr_frame *);
 void
 exception_init (void) 
 {
-  sema_init(&page_fault_sema, 1);
-
   /* These exceptions can be raised explicitly by a user program,
      e.g. via the INT, INT3, INTO, and BOUND instructions.  Thus,
      we set DPL==3, meaning that user programs are allowed to
@@ -177,9 +175,7 @@ page_fault (struct intr_frame *f)
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
   intr_enable ();
-  
-  sema_down(&page_fault_sema);
-  
+    
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -202,18 +198,15 @@ page_fault (struct intr_frame *f)
   
   /* Check supplemental page table for page info. */
   if(supp_page_bring_into_memory(fault_addr, write)) {
-    sema_up(&page_fault_sema);
     return;
   } else if(smells_like_stack_pointer(f->esp, fault_addr)) {
     void *upage = pg_round_down(fault_addr);
     install_stack_page(upage);
-    sema_up(&page_fault_sema);
     return;
   }
 
   /* If we had no page table information here, and it wasn't a stack pointer,
      we should kill the process. */
-  sema_up(&page_fault_sema);
   exit_current_process(-1);
 
 

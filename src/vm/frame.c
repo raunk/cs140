@@ -32,6 +32,7 @@ frame_init(void)
 struct frame*
 frame_get_page(enum palloc_flags flags, void *uaddr)
 { 
+  lock_acquire (&frame_lock);
   /* Ensure we are always getting from the user pool */
   uaddr = pg_round_down(uaddr);
   flags = PAL_USER | PAL_ZERO;
@@ -40,7 +41,6 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
      we need to evict */
   void *page = palloc_get_page(flags);
   struct frame* frm;
-  lock_acquire (&frame_lock);
   
   if(page == NULL) {
     frm = frame_find_eviction_candidate();
@@ -78,7 +78,6 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
 void
 frame_free_user_page(void *vaddr)
 {
-  sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
   
   /* Search frame_list for struct frame mapped to page */
@@ -97,7 +96,6 @@ frame_free_user_page(void *vaddr)
              free both the page and the struct frame */
         free_frame_and_check_clock(e, frm);
         lock_release (&frame_lock);
-        sema_up(&page_fault_sema);
         return;
       }
     }
@@ -110,7 +108,6 @@ frame_free_user_page(void *vaddr)
 void
 frame_free_page(void *page)
 {
-  sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
   
   page = pg_round_down(page);
@@ -126,7 +123,6 @@ frame_free_page(void *page)
            free both the page and the struct frame */
         free_frame_and_check_clock(e, frm);
         lock_release (&frame_lock);
-        sema_up(&page_fault_sema);
         return;
       }
     }

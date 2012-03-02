@@ -174,18 +174,14 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
 {
   // Check that it is within user memory
   if(is_user_vaddr(ptr)) {
-    sema_down(&page_fault_sema);
     struct thread *t = thread_current ();
     // Check that memory has been mapped
     
-    
     if(pagedir_get_page (t->pagedir, ptr) != NULL) {
-      sema_up(&page_fault_sema);
       return;
     }
     
     if(supp_page_bring_into_memory(ptr, false)) {
-       sema_up(&page_fault_sema);
        return;
     }
 
@@ -194,10 +190,8 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
     if(smells_like_stack_pointer(f->esp, ptr))
       {
         install_stack_page(pg_round_down(ptr));
-        sema_up(&page_fault_sema);
         return;
       }
-    sema_up(&page_fault_sema);
   }
   
   // Pointer is invalid if we get here

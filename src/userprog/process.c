@@ -577,7 +577,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  sema_down(&page_fault_sema);
   uint8_t *kpage;
   bool success = false;
   
@@ -597,7 +596,6 @@ setup_stack (void **esp)
         frame_free_page (kpage);
       }
     }
-  sema_up(&page_fault_sema);
   return success;
 }
 

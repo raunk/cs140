@@ -703,9 +703,7 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-  
-  sema_down(&page_fault_sema);
-  
+    
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -1001,9 +999,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->waited_on_by = -1; 
   t->exit_status = 0;
   t->load_status = 0; 
-  
-//  sema_init(&t->page_fault_sema, 1);
-  
+    
   list_push_back (&all_list, &t->allelem);
 }
 
@@ -1155,7 +1151,6 @@ thread_schedule_tail (struct thread *prev)
         thread_free_file_descriptor_elems(prev);
         palloc_free_page(prev);
       }
-      sema_up(&page_fault_sema);
     }
     
 }

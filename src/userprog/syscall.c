@@ -305,6 +305,7 @@ unmap_file_helper(struct mmap_elem* map_elem)
 
   int cur_tid = thread_current()->tid;
   int offset = 0; 
+  struct file* f = file_open(map_elem->inode);
   
   while(write_bytes > 0)
   {
@@ -315,7 +316,6 @@ unmap_file_helper(struct mmap_elem* map_elem)
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
-      struct file* f = file_open(map_elem->inode);
       safe_file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
     }
@@ -332,6 +332,8 @@ unmap_file_helper(struct mmap_elem* map_elem)
   }
   
   hash_delete(&thread_current()->map_hash, &map_elem->elem); 
+
+  file_close(f);
 }
 
 /* Callback function to unmap files on process exit */
@@ -342,6 +344,7 @@ unmap_file(struct hash_elem* elem, void* aux UNUSED)
   unmap_file_helper(e);
 }
 
+/* Unmap all of the files memory mapped by this thread. */
 void
 handle_unmapped_files(void)
 {
@@ -477,11 +480,11 @@ syscall_mmap(struct intr_frame *f)
   void* cur_page = (void*)addr;
   int offset = 0;
 
+  struct file* saved_file = file_reopen(fd_elem->f);
   // Save entries in the supplemental page table for this file
   while(read_bytes > 0)
   {
     int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-    struct file* saved_file = file_reopen(fd_elem->f);
     supp_page_insert_for_on_disk(thread_current()->tid, cur_page,
             saved_file, offset, page_read_bytes, true, true);
 

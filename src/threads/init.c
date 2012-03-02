@@ -134,7 +134,7 @@ main (void)
 
 #ifdef VM
   swap_init();
-  frame_init (user_page_limit);
+  frame_init ();
   supp_page_init();
 #endif
 

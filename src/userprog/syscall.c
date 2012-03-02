@@ -188,10 +188,9 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
        sema_up(&page_fault_sema);
        return;
     }
-    //sema_up(&page_fault_sema);
+
     // If it looks like a stack pointer, give them a new
     // stack page and return 
-    //sema_down(&page_fault_sema);
     if(smells_like_stack_pointer(f->esp, ptr))
       {
         install_stack_page(pg_round_down(ptr));
@@ -200,8 +199,7 @@ syscall_check_user_pointer (void *ptr, struct intr_frame * f)
       }
     sema_up(&page_fault_sema);
   }
-
-
+  
   // Pointer is invalid if we get here
   exit_current_process(-1);
 }
@@ -368,8 +366,6 @@ exit_current_process(int status)
   /* Unmap any files that were not explicitly unmapped */
   handle_unmapped_files();
   
-//  frame_cleanup_for_thread(cur);
-
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
   safe_file_close(cur->executing_file);
@@ -468,7 +464,6 @@ syscall_mmap(struct intr_frame *f)
       return;
     }
 
-
   // Error if we are trying to map over a stack location
   void* esp_page = pg_round_down(esp);
   if(addr >= esp_page)
@@ -476,7 +471,6 @@ syscall_mmap(struct intr_frame *f)
       f->eax = -1;
       return;
     }
-
 
   int map_id = thread_add_mmap_entry(addr, length, file_get_inode(fd_elem->f));
   int read_bytes = length;
@@ -508,7 +502,7 @@ syscall_munmap(struct intr_frame *f)
   int map_id = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
   struct mmap_elem* map_elem = thread_lookup_mmap_entry(map_id);
 
-  // Tryin to unmap an invalid mapping
+  // Trying to unmap an invalid mapping
   if(map_elem == NULL)
   {
     exit_current_process(-1);
@@ -550,7 +544,6 @@ syscall_check_buffer_bounds(char* buffer, unsigned length,
 {
   unsigned length_check = length;
   while(length_check >= PGSIZE) {
-   // printf("CHECKING BUFFER AT: %p\n", (buffer+length_check-1));
     syscall_check_user_pointer(buffer+length_check-1, f);
     length_check -= PGSIZE;
   }

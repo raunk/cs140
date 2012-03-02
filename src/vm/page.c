@@ -23,16 +23,6 @@ static bool supp_page_less (const struct hash_elem *a_, const struct hash_elem *
   
 static struct hash supp_page_table;
 
-/* Call thread_yield with probability 1/2 */
-void
-debug()
-{
-  unsigned long n = random_ulong() % 2;
-  if(n == 0) {
-    thread_yield();
-  }
-}
-
 void
 supp_remove_entry(tid_t tid, void* vaddr)
 {
@@ -87,21 +77,19 @@ supp_page_lookup (tid_t tid, void *vaddr)
   entry.key.tid = tid;
   entry.key.vaddr = vaddr;
   
-  //lock_acquire(&supp_page_lock);
   e = hash_find (&supp_page_table, &entry.hash_elem);
-  //lock_release(&supp_page_lock);
   
   return e != NULL ? hash_entry (e, struct supp_page_entry, hash_elem) : NULL;
 }
 
-struct supp_page_entry*
+void
 supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
 {
   lock_acquire(&supp_page_lock);
   struct supp_page_entry *entry = supp_page_lookup (thread_current()->tid, vaddr);
   if(entry != NULL) {
     lock_release(&supp_page_lock);
-    return entry;
+    return;
   }
   entry = (struct supp_page_entry*) 
                             malloc(sizeof(struct supp_page_entry));
@@ -129,7 +117,7 @@ supp_page_insert_for_on_stack(tid_t tid, void *vaddr)
   lock_release(&supp_page_lock);
 }
 
-struct supp_page_entry*
+void
 supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
     int off, int bytes_to_read, bool writable, bool is_mmapped)
 {
@@ -137,7 +125,7 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
   struct supp_page_entry *entry = supp_page_lookup (thread_current()->tid, vaddr);
   if(entry != NULL) {
     lock_release(&supp_page_lock);
-    return entry;
+    return;
   }
   entry = (struct supp_page_entry*) 
                             malloc(sizeof(struct supp_page_entry));
@@ -169,24 +157,19 @@ supp_page_insert_for_on_disk(tid_t tid, void *vaddr, struct file *f,
 bool 
 supp_page_bring_into_memory(void* addr, bool write)
 {
-  //sema_down(&page_fault_sema);
   void *upage = pg_round_down(addr);
-  //printf("Attempting to lookup %p in supp page table..\n", upage);
   lock_acquire(&supp_page_lock);
   struct supp_page_entry *entry = supp_page_lookup(thread_current()->tid, upage);
   lock_release(&supp_page_lock);
   
   if (entry != NULL) {
-    //printf("ENTRY IS FOUND WITH STATUS %d\n", entry->status);
     if(entry->status == PAGE_ON_DISK) {
-      //printf("\n\n--------------- Reading page from disk ------------------------\n");
-      // If we page faulted on writing to a non-writeable location
-      // exit the process
+      /* If we page faulted on writing to a non-writeable location, exit the process */
       if(write && !entry->writable)
       {
         exit_current_process(-1);
       } 
-      //debug();
+
     /* Get a page of memory. */
      struct frame* frm = frame_get_page (PAL_USER, upage);
      uint8_t *kpage = frm->physical_address;
@@ -204,7 +187,6 @@ supp_page_bring_into_memory(void* addr, bool write)
          frame_free_page (kpage);
          PANIC("DIDNT READ EVERYTHING SUPPOSED TO!");
        }
-      //memset (kpage + bytes_to_read, 0, PGSIZE - bytes_to_read);
       
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
@@ -214,14 +196,11 @@ supp_page_bring_into_memory(void* addr, bool write)
        }
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;
-      // printf("Brought page %p from disk into physical memory at %p\n", upage, kpage);
-      //       printf("--------------- End reading page from disk ------------------------\n\n");
-      //sema_up(&page_fault_sema);
+
       return true; 
       
     } else if(entry->status == PAGE_IN_SWAP) {
       
-      //printf("\n\n--------------- Reading out of swap ------------------------\n");
       /* Get a page of memory. */
       struct frame* frm = frame_get_page (PAL_USER, upage);
       uint8_t *kpage = frm->physical_address;
@@ -237,7 +216,6 @@ supp_page_bring_into_memory(void* addr, bool write)
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, entry->writable)) 
        {
-      //   printf("COULDNT INSTALL PAGE!\n");
          frame_free_page (kpage);
        }
        
@@ -247,15 +225,10 @@ supp_page_bring_into_memory(void* addr, bool write)
       entry->status = PAGE_IN_MEM;
       frm->is_evictable = true;
       
-      // printf("Brought page %p from swap into physical memory at %p\n", upage, kpage);
-      //       printf("Page is valid up to %p\n", (upage+PGSIZE));
-      //       printf("--------------- End reading out of swap ------------------------\n\n");
-      //sema_up(&page_fault_sema);
       return true;
     }
   }
-  //sema_up(&page_fault_sema);
-//  printf("EXITING ON ADDRESS: %p\n", addr);
+  
   return false;
 }
 

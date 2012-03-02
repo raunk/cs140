@@ -16,7 +16,7 @@ struct frame {
     bool is_evictable;
 };
 
-void frame_init(size_t user_page_limit);
+void frame_init(void);
 struct frame* frame_get_page(enum palloc_flags flags, void *uaddr);
 void frame_free_page(void *page);
 void frame_free_user_page(void *vaddr);

@@ -22,7 +22,7 @@ static struct frame* frame_find_eviction_candidate(void);
 static void free_frame_and_check_clock(struct list_elem* e, struct frame* frm);
 
 void
-frame_init(size_t user_page_limit)
+frame_init(void)
 {
   clock_ptr = NULL;
   list_init (&frame_list);
@@ -40,16 +40,11 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
      we need to evict */
   void *page = palloc_get_page(flags);
   struct frame* frm;
+  lock_acquire (&frame_lock);
+  
   if(page == NULL) {
-    lock_acquire (&frame_lock);
-
     frm = frame_find_eviction_candidate();
     frm->is_evictable = false;
-    // printf("KPAGE: %d\n", *(int*)frm->physical_address);
-    //     printf("Evicting page %p at physical memory location %p\n", frm->user_address, frm->physical_address);
-    // printf("Page came from file ptr %p at offset %d\n", supp_pg->f, supp_pg->off);
-    //     printf("Wrote page %p to swap at slot %d\n", frm->user_address, swap_idx);
-    //
     
     memset (frm->physical_address, 0, PGSIZE);
     
@@ -57,10 +52,7 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     frm->user_address = uaddr;
     
     page = frm->physical_address;
-    lock_release (&frame_lock);
-    
   } else {
-    lock_acquire (&frame_lock);
     frm = (struct frame*) malloc(sizeof(struct frame));
     if(frm == NULL) {
       PANIC ("frame_get: WE RAN OUT OF MALLOC SPACE. SHIT!\n");
@@ -76,10 +68,9 @@ frame_get_page(enum palloc_flags flags, void *uaddr)
     if(clock_ptr == NULL) {
       clock_ptr = list_begin (&frame_list);
     }
-    lock_release (&frame_lock);
   }
-  //printf("Returning physical page %p for user page %p\n", page, uaddr);
-  //frm->is_evictable = true;
+  
+  lock_release (&frame_lock);
   return frm;
 }
 
@@ -89,6 +80,7 @@ frame_free_user_page(void *vaddr)
 {
   sema_down(&page_fault_sema);
   lock_acquire (&frame_lock);
+  
   /* Search frame_list for struct frame mapped to page */
   struct list_elem *e;
 
@@ -179,34 +171,20 @@ free_frame_and_check_clock(struct list_elem* e, struct frame* frm)
 static struct frame*
 frame_find_eviction_candidate(void)
 {
-  // printf("--------------- Pages currently --------------------------\n");
-  //   struct list_elem *e;
-  //   for (e = list_begin (&frame_list); e != list_end (&frame_list);
-  //        e = list_next (e))
-  //     {
-  //       struct frame *frm = list_entry (e, struct frame, elem);
-  //       printf("%p -> ", frm->user_address);
-  //     }
-  //   printf("\n");
-  //   printf("--------------- End Pages currently --------------------------\n");
-  //   printf("--------------- Begin clock algorithm ------------------------\n");
-  /* Cycle pages in order circularly */
+  /* Cycle through pages in order circularly */
   while (1)
       { 
         struct frame *frm = list_entry (clock_ptr, struct frame, elem);
         if(!frm->is_evictable) continue;
         frm->is_evictable = false;
         
-//        printf("Clock ptr %p\n", clock_ptr);
         clock_ptr = list_next(clock_ptr);
         if(clock_ptr == list_end (&frame_list)) {
           clock_ptr = list_begin (&frame_list);
         }
         
-
         if(!is_thread(frm->owner))
           {
-            printf("NOT A THREAD %p\n", frm->owner);
             continue;
           }
         
@@ -252,11 +230,9 @@ frame_find_eviction_candidate(void)
             }
           } else {
             /* It's a stack page, we must write it to swap */
-            //printf("Writing to swap for addr: %p, %p\n", frm->user_address, frm->physical_address);
             pagedir_clear_page (frm->owner->pagedir, frm->user_address);
             frame_write_to_swap(frm, supp_pg);
           }
-          
           
           /* Choose to evict this frame. */
           return frm;
@@ -285,7 +261,6 @@ frame_cleanup_for_thread(struct thread* t)
 
     if (frm->owner == t) {
       supp_remove_entry(t->tid, frm->user_address);
-      debug();
       pagedir_clear_page (frm->owner->pagedir, frm->user_address);
       
       free_frame_and_check_clock(e, frm);
@@ -297,5 +272,4 @@ frame_cleanup_for_thread(struct thread* t)
   swap_free_slots_for_thread(t);
   
   lock_release (&frame_lock);
-  //sema_up(&page_fault_sema);
 }

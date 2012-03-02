@@ -134,23 +134,18 @@ void
 install_stack_page(void* upage)
 {
     /* Add this page to supp page table if not there */
-    //sema_down(&page_fault_sema);
-    struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current()->tid, upage);
+    supp_page_insert_for_on_stack(thread_current()->tid, upage);
     struct frame* frm = frame_get_page (PAL_USER, upage);
     uint8_t *kpage = frm->physical_address;
     
     memset (kpage, 0, PGSIZE);
     
     /* Add the page to the process's address space. */
-    //printf("INSTALLING PAGE!!!\n");
-    // TODO should this page always be writable????
     if (!install_page (upage, kpage, true)) 
      {
        frame_free_page (kpage);
      }
-    // printf("FINISHED INSTALLING PAGE!\n");
     frm->is_evictable = true;
-    //sema_up(&page_fault_sema);
 }
 
 
@@ -185,28 +180,13 @@ page_fault (struct intr_frame *f)
   
   sema_down(&page_fault_sema);
   
-//  printf("FAULT ON %p\n", fault_addr);
-
-/*  if(fault_addr >= 0xcccccccc)
-    {
-      PANIC("stop!\n");
-    }
-*/
-
   /* Count page faults. */
   page_fault_cnt++;
 
   /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
-  
-  // printf("Thread is %d\n", thread_current()->tid);
-  // printf ("Page fault at %p: %s error %s page in %s context.\n",
-  //           fault_addr,
-  //           not_present ? "not present" : "rights violation",
-  //           write ? "writing" : "reading",
-  //           user ? "user" : "kernel");
+  not_present = (f->error_code & PF_ERR_P) == 0;
+  write = (f->error_code & PF_ERR_W) != 0;
+  user = (f->error_code & PF_ERR_U) != 0;
   
   /* NULL pointer dereferenced */
   if(fault_addr == 0){
@@ -221,9 +201,7 @@ page_fault (struct intr_frame *f)
      be assured of reading CR2 before it changed). */
   
   /* Check supplemental page table for page info. */
-  // printf("LOOKING UP: tid=%d, addr=%p\n", thread_current()->tid, pg_round_down(fault_addr));
   if(supp_page_bring_into_memory(fault_addr, write)) {
-    //printf("RETURNING FROM PAGE FAULT AT %p\n", fault_addr);
      sema_up(&page_fault_sema);
      return;
   } else {

@@ -258,10 +258,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  //debug();
   
   frame_cleanup_for_thread(cur);
-  //debug();
   handle_unmapped_files();
 
   /* Destroy the current process's page directory and switch back
@@ -565,7 +563,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-      //debug();
       supp_page_insert_for_on_disk(thread_current()->tid, upage, 
                 file, ofs, page_read_bytes, writable, false);
 
@@ -595,9 +592,8 @@ setup_stack (void **esp)
     {
       success = install_page (uaddr, kpage, true);
       if (success) {
-        //debug();
         /* Add this page to supp page table if not there */
-        struct supp_page_entry *supp_pg = supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
+        supp_page_insert_for_on_stack(thread_current()->tid, uaddr);
         frm->is_evictable = true;
         *esp = PHYS_BASE;
       } else {

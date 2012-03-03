@@ -9,10 +9,8 @@
 #include "vm/swap.h"
 
 static int get_free_slot_index(void);
-static void swap_free_slot_unsafe(struct supp_page_entry *page);
 
 struct block *swap_block;
-static struct lock swap_lock;
 
 /* Bitmap with SWAP_SIZE bits used to keep track of which swap slots
    are in-use. */
@@ -30,7 +28,6 @@ swap_init(void)
     exit_current_process(-1);
   }
   
-  lock_init (&swap_lock);
   list_init (&supp_page_entries);
 }
 
@@ -56,7 +53,6 @@ get_free_slot_index(void)
 bool
 swap_write_to_slot(const void *data, struct supp_page_entry *page)
 {
-  lock_acquire(&swap_lock);
   int i;
   for(i = 0; i < 8; i++) {
     int idx = get_free_slot_index();
@@ -69,8 +65,6 @@ swap_write_to_slot(const void *data, struct supp_page_entry *page)
   }
   
   list_push_front (&supp_page_entries, &page->list_elem);
-  
-  lock_release(&swap_lock);
   return true;
 }
 
@@ -78,18 +72,16 @@ swap_write_to_slot(const void *data, struct supp_page_entry *page)
 void
 swap_read_from_slot(int swap_arr[8], void *buffer)
 {
-  lock_acquire(&swap_lock);
   int i;
   for(i = 0; i < 8; i++) {
     ASSERT(bitmap_test(map, swap_arr[i]));
     block_read(swap_block, swap_arr[i], buffer + i*BLOCK_SECTOR_SIZE);
   }
-  lock_release(&swap_lock);
 }
 
-/* Unsafe version of swap_free_slot(). */
-static void
-swap_free_slot_unsafe(struct supp_page_entry *page)
+/* Flags the slot at index INDEX as free. */
+void
+swap_free_slot(struct supp_page_entry *page)
 {
   int i;
   for (i = 0; i < 8; i++) {
@@ -100,23 +92,11 @@ swap_free_slot_unsafe(struct supp_page_entry *page)
   list_remove(&page->list_elem);
 }
 
-/* Flags the slot at index INDEX as free. */
-void
-swap_free_slot(struct supp_page_entry *page)
-{
-  lock_acquire(&swap_lock);
-  swap_free_slot_unsafe(page);
-  lock_release(&swap_lock);
-}
-
 /* Frees all swap slots occupied by pages belonging to the current process. */
 void
 swap_free_slots_for_thread(struct thread *t)
 {
-  lock_acquire(&swap_lock);
-  
   if (list_empty(&supp_page_entries)) {
-    lock_release(&swap_lock);
     return;
   }
   
@@ -128,7 +108,7 @@ swap_free_slots_for_thread(struct thread *t)
     struct supp_page_entry *page = list_entry (e, struct supp_page_entry, list_elem);
 
     if (page->key.tid == t->tid) {
-      swap_free_slot_unsafe(page);
+      swap_free_slot(page);
       
       pagedir_clear_page (t->pagedir, page->key.vaddr);
       
@@ -136,6 +116,4 @@ swap_free_slots_for_thread(struct thread *t)
     }
     e = next;
   }
-  
-  lock_release(&swap_lock);
 }

@@ -17,6 +17,9 @@ struct cache_elem{
 };
 
 
+void cache_read(block_sector_t sector, void* buffer, int size);
+void cache_write(block_sector_t sector, void* buffer, int size);
+
 struct cache_elem* cache_get(block_sector_t sector);
 void cache_init(void);
 

@@ -1,6 +1,8 @@
 #include "filesys/cache.h"
 #include <debug.h>
 #include "threads/malloc.h"
+#include "filesys/filesys.h"
+#include <string.h>
 
 
 static struct list cache_list;
@@ -81,7 +83,9 @@ cache_insert(block_sector_t sector)
   if(c == NULL) return NULL;
 
   c->sector = sector;
-  c->is_dirty = 0;
+  c->is_dirty = false;
+
+  block_read(fs_device, sector, &c->data);
 
   list_push_front(&cache_list, &c->list_elem);
   hash_insert(&cache_hash, &c->hash_elem);
@@ -108,10 +112,33 @@ cache_evict()
       list_entry(to_evict, struct cache_elem, list_elem); 
 
   // TODO: If this is dirty write it back to disk
+  if(c->is_dirty)
+    {
+      block_write(fs_device, c->sector, c->data);
+    } 
+
 
   hash_delete(&cache_hash, &c->hash_elem);
   free(c); 
 }
+
+
+/* Read SIZE bytes from SECTOR into BUFFER */
+void 
+cache_read(block_sector_t sector, void* buffer, int size)
+{
+  struct cache_elem* c = cache_get(sector);
+  memcpy(buffer, c->data, size);
+}
+
+/* Write SIZE bytes from BUFFER into SECTOR */
+void cache_write(block_sector_t sector, void* buffer, int size)
+{
+  struct cache_elem* c = cache_get(sector);
+  c->is_dirty = true;
+  memcpy(c->data, buffer, size);
+}
+
 
 /* Get the cache element for this sector */
 struct cache_elem* 

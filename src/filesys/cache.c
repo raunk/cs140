@@ -111,12 +111,10 @@ cache_evict()
   struct cache_elem* c = 
       list_entry(to_evict, struct cache_elem, list_elem); 
 
-  // TODO: If this is dirty write it back to disk
   if(c->is_dirty)
     {
       block_write(fs_device, c->sector, c->data);
     } 
-
 
   hash_delete(&cache_hash, &c->hash_elem);
   free(c); 
@@ -157,32 +155,6 @@ cache_get(block_sector_t sector)
       cache_evict();  
    } 
  
-  //look it up
   c = cache_insert(sector);
   return c; 
-
-  /*
-    If it is in the cache
-      move it to the front
-        and return it
-    otherwise
-      if the cache is not full
-        look it up
-        put it in cache
-        move to front
-      else
-        evict from cache
-        insert in cache
-
-  V2
-
-    If in cache
-      reinsert to front
-      return elem
-    else
-      if cache is full
-        evict elem
-      insert elem
-    return elem
-  */
 }

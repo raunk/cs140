@@ -7,7 +7,6 @@ static struct list cache_list;
 static struct hash cache_hash;
 
 static void cache_evict(void);
-static void cache_init(void);
 static int cache_size(void);
 static struct cache_elem* cache_lookup(block_sector_t sector);
 static struct cache_elem* cache_insert(block_sector_t sector);
@@ -43,7 +42,7 @@ cache_less_fn (const struct hash_elem *a_,
 }
 
 /* Basic setup for the cache */
-static void
+void
 cache_init()
 {
   list_init(&cache_list);
@@ -79,9 +78,11 @@ cache_insert(block_sector_t sector)
   struct cache_elem* c = (struct cache_elem*)
                             malloc(sizeof(struct cache_elem));
 
-  if(c == NULL) return;
+  if(c == NULL) return NULL;
 
   c->sector = sector;
+  c->is_dirty = 0;
+
   list_push_front(&cache_list, &c->list_elem);
   hash_insert(&cache_hash, &c->hash_elem);
   return c;
@@ -105,6 +106,9 @@ cache_evict()
   struct list_elem* to_evict = list_pop_back(&cache_list);
   struct cache_elem* c = 
       list_entry(to_evict, struct cache_elem, list_elem); 
+
+  // TODO: If this is dirty write it back to disk
+
   hash_delete(&cache_hash, &c->hash_elem);
   free(c); 
 }

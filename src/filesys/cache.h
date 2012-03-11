@@ -5,6 +5,8 @@
 #include <hash.h>
 #include "devices/block.h"
 
+#define MAX_CACHE_SIZE 64
+
 struct cache_elem{
   block_sector_t sector; 
   

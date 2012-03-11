@@ -1,5 +1,6 @@
 #include "filesys/cache.h"
 #include <debug.h>
+#include "threads/malloc.h"
 
 
 static struct list cache_list;
@@ -9,7 +10,7 @@ static void cache_evict(void);
 static void cache_init(void);
 static int cache_size(void);
 static struct cache_elem* cache_lookup(block_sector_t sector);
-static void cache_insert(block_sector_t sector);
+static struct cache_elem* cache_insert(block_sector_t sector);
 static void cache_reinsert(struct cache_elem* elem);
 static unsigned cache_hash_fn (const struct hash_elem *p_, 
                                   void *aux UNUSED);
@@ -61,17 +62,29 @@ cache_size()
 static struct cache_elem*
 cache_lookup(block_sector_t sector)
 {
+  struct cache_elem c;
+  c.sector = sector;
 
+  struct hash_elem* e = hash_find(&cache_hash, &c.hash_elem);
+  return e != NULL ? hash_entry(e, struct cache_elem, hash_elem) :NULL; 
 }
 
 
 /* Insert sector SECTOR into the cache
    by putting it in the hash and at
    the front of the list. */
-static void
+static struct cache_elem* 
 cache_insert(block_sector_t sector)
 {
+  struct cache_elem* c = (struct cache_elem*)
+                            malloc(sizeof(struct cache_elem));
 
+  if(c == NULL) return;
+
+  c->sector = sector;
+  list_push_front(&cache_list, &c->list_elem);
+  hash_insert(&cache_hash, &c->hash_elem);
+  return c;
 }
 
 /* Since this elem was just accessed
@@ -79,7 +92,8 @@ cache_insert(block_sector_t sector)
 static void
 cache_reinsert(struct cache_elem* elem)
 {
-
+  list_remove(&elem->list_elem);
+  list_push_front(&cache_list, &elem->list_elem);
 }
 
 
@@ -88,14 +102,34 @@ cache_reinsert(struct cache_elem* elem)
 static void
 cache_evict()
 {
-
+  struct list_elem* to_evict = list_pop_back(&cache_list);
+  struct cache_elem* c = 
+      list_entry(to_evict, struct cache_elem, list_elem); 
+  hash_delete(&cache_hash, &c->hash_elem);
+  free(c); 
 }
 
 /* Get the cache element for this sector */
 struct cache_elem* 
 cache_get(block_sector_t sector)
 {
-  return NULL;
+  struct cache_elem* c = cache_lookup(sector);
+  // If it was already in the cache, move it to the front
+  if(c)
+   {
+    cache_reinsert(c);
+    return c;
+   }
+
+  if(cache_size() == MAX_CACHE_SIZE)
+   {
+      cache_evict();  
+   } 
+ 
+  //look it up
+  c = cache_insert(sector);
+  return c; 
+
   /*
     If it is in the cache
       move it to the front

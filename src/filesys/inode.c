@@ -10,6 +10,9 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define INODE_DIRECT_BLOCK_COUNT 12
+#define INDIRECT_BLOCK_INDEX 12
+#define DOUBLY_INDIRECT_BLOCK_INDEX 13 
 #define INODE_INDEX_COUNT 14
 #define NUM_BLOCK_POINTERS (BLOCK_SECTOR_SIZE / sizeof(uint32_t))
  
@@ -58,10 +61,43 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
+/*  if (pos < inode->data.length)
     return inode->data.start + pos / BLOCK_SECTOR_SIZE;
   else
     return -1;
+*/
+    struct cache_elem* c = cache_get(inode->start);
+    struct inode_disk* info = (struct inode_disk*)c->data;
+  
+    int file_sector = pos / BLOCK_SECTOR_SIZE;
+    if(file_sector < INODE_DIRECT_BLOCK_COUNT)
+    {
+      return info->index[file_sector];      
+    }else if(file_sector < INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS)
+    {
+      int idx = file_sector - INODE_DIRECT_BLOCK_COUNT;
+      struct cache_elem* ib_c = cache_get(info->index[INDIRECT_BLOCK_INDEX]);
+      struct indirect_block* ib = (struct indirect_block*)ib_c->data;
+      return ib->pointers[idx]; 
+    } else {
+      // We are offset 140 block pointers because of the direct 
+      // block and singly indirect block, so the 140th block of the 
+      // file will correspond to the 0th index in the 0th doubly 
+      // indirect block 
+      int offset = INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS;
+      int adjusted = file_sector - offset;
+      
+      int first_idx = adjusted / NUM_BLOCK_POINTERS;
+      int second_idx = adjusted % NUM_BLOCK_POINTERS;
+      
+      struct cache_elem* ib_c = cache_get(info->index[DOUBLY_INDIRECT_BLOCK_INDEX]);
+      struct indirect_block* ib = (struct indirect_block*)ib_c->data;
+      int next_block = ib->pointers[first_idx];
+      
+      struct cache_elem* ib_c2 = cache_get(next_block);
+      struct indirect_block* ib_2 = (struct indirect_block*)ib_c2->data;
+      return ib_2->pointers[second_idx];
+    }
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -98,7 +134,14 @@ inode_create (block_sector_t sector, off_t length)
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->start)) 
+
+      size_t j;
+      for(j = 0; j < INODE_INDEX_COUNT; j++)
+        {
+          disk_inode->index[j] = 0; // Mark this block as unused
+        }
+
+/*      if (free_map_allocate (sectors, &disk_inode->start)) 
         {
           cache_write(sector, disk_inode);
           //block_write (fs_device, sector, disk_inode);
@@ -113,6 +156,9 @@ inode_create (block_sector_t sector, off_t length)
             }
           success = true; 
         } 
+*/
+      cache_write(sector, disk_inode);
+      success = true;
       free (disk_inode);
     }
   return success;

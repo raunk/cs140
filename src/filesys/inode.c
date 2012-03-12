@@ -10,7 +10,9 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-
+#define INODE_INDEX_COUNT 14
+#define NUM_BLOCK_POINTERS (BLOCK_SECTOR_SIZE / sizeof(uint32_t))
+ 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -18,7 +20,15 @@ struct inode_disk
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    block_sector_t index[INODE_INDEX_COUNT];         
+    bool is_dir;
+    uint32_t unused[110];               /* Not used. */
+  };
+
+
+struct indirect_block
+  {
+    uint32_t pointers[NUM_BLOCK_POINTERS];
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE

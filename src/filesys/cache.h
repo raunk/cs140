@@ -28,4 +28,6 @@ struct cache_elem* cache_get(block_sector_t sector);
 void cache_init(void);
 void cache_stats(void);
 
+void cache_flush(void);
+
 #endif /* filesys/cache.h */

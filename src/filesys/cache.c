@@ -194,3 +194,22 @@ cache_stats(void)
 {
   printf("Cache hits=%d, misses=%d\n", cache_hits, cache_misses);
 }
+
+/* Write any dirty blocks back to disk */
+void
+cache_flush(void)
+{
+  struct list_elem *e;
+  for (e = list_begin (&cache_list); e != list_end (&cache_list);
+       e = list_next (e))
+    {
+      struct cache_elem* c = 
+          list_entry(e, struct cache_elem, list_elem);
+
+      if(c->is_dirty)
+        block_write(fs_device, c->sector, c->data);
+    }
+
+
+  //TODO: free list and cache elems..
+}

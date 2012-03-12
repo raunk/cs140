@@ -66,6 +66,9 @@ byte_to_sector (const struct inode *inode, off_t pos)
   else
     return -1;
 */
+    // TODO: Fail if bigger pos > 8MB
+    // TODO: Fail if bigger than the file size..?
+  
     struct cache_elem* c = cache_get(inode->start);
     struct inode_disk* info = (struct inode_disk*)c->data;
   

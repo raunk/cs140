@@ -28,7 +28,8 @@ struct inode_disk
     uint32_t unused[110];               /* Not used. */
   };
 
-
+/* A struct which represents pointers to disk blocks for single
+ * and doubly indirect blocks for the multilevel index */
 struct indirect_block
   {
     uint32_t pointers[NUM_BLOCK_POINTERS];
@@ -68,6 +69,10 @@ byte_to_sector (const struct inode *inode, off_t pos)
 */
     // TODO: Fail if bigger pos > 8MB
     // TODO: Fail if bigger than the file size..?
+    // TODO: Allocate singel and double indirect blocks if 
+    //       they ever come back zero. And when you allocate
+    //       them we also need to zero all of the pointers.
+    //       this will get split into a few helper functions
   
     struct cache_elem* c = cache_get(inode->start);
     struct inode_disk* info = (struct inode_disk*)c->data;
@@ -242,6 +247,9 @@ inode_close (struct inode *inode)
           free_map_release (inode->sector, 1);
           free_map_release (inode->data.start,
                             bytes_to_sectors (inode->data.length)); 
+          //TODO: Here we should traverse the inode multilevel 
+          // index up to the file length, and free the sector
+          // if it is not 0 (0 is unused)
         }
 
       free (inode); 

@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "filesys/filesys.h"
 #include <string.h>
+#include <stdio.h>
 
 
 static struct list cache_list;
@@ -19,6 +20,8 @@ static bool cache_less_fn (const struct hash_elem *a_,
                           const struct hash_elem *b_,
                           void *aux UNUSED);
 
+static int cache_hits;
+static int cache_misses;
 
 /* Hash function for cache hash */
 static unsigned 
@@ -49,6 +52,8 @@ cache_init()
 {
   list_init(&cache_list);
   hash_init(&cache_hash, cache_hash_fn, cache_less_fn, NULL); 
+  cache_hits = 0;
+  cache_misses = 0;
 }
 
 /* Return number of elements in the cache */
@@ -120,17 +125,30 @@ cache_evict()
   free(c); 
 }
 
+/* Read a full sector from the cache */
+void 
+cache_read(block_sector_t sector, void* buffer)
+{
+  cache_read_bytes(sector, buffer, BLOCK_SECTOR_SIZE);
+}
+
+/* Write a full sector to the cache */
+void 
+cache_write(block_sector_t sector, void* buffer)
+{
+  cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE);
+}
 
 /* Read SIZE bytes from SECTOR into BUFFER */
 void 
-cache_read(block_sector_t sector, void* buffer, int size)
+cache_read_bytes(block_sector_t sector, void* buffer, int size)
 {
   struct cache_elem* c = cache_get(sector);
   memcpy(buffer, c->data, size);
 }
 
 /* Write SIZE bytes from BUFFER into SECTOR */
-void cache_write(block_sector_t sector, void* buffer, int size)
+void cache_write_bytes(block_sector_t sector, void* buffer, int size)
 {
   struct cache_elem* c = cache_get(sector);
   c->is_dirty = true;
@@ -147,14 +165,24 @@ cache_get(block_sector_t sector)
   if(c)
    {
     cache_reinsert(c);
+    cache_hits++;
     return c;
    }
 
+   
   if(cache_size() == MAX_CACHE_SIZE)
    {
       cache_evict();  
    } 
  
   c = cache_insert(sector);
+  cache_misses++;
   return c; 
+}
+
+
+void
+cache_stats(void)
+{
+  printf("Cache hits=%d, misses=%d\n", cache_hits, cache_misses);
 }

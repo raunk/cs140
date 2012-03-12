@@ -17,10 +17,12 @@ struct cache_elem{
 };
 
 
-void cache_read_bytes(block_sector_t sector, void* buffer, int size);
-void cache_write_bytes(block_sector_t sector, void* buffer, int size);
+void cache_read_bytes(block_sector_t sector, void* buffer, 
+                      int size, int offset);
+void cache_write_bytes(block_sector_t sector, const void* buffer, 
+                      int size, int offset);
 void cache_read(block_sector_t sector, void* buffer);
-void cache_write(block_sector_t sector, void* buffer);
+void cache_write(block_sector_t sector, const void* buffer);
 
 struct cache_elem* cache_get(block_sector_t sector);
 void cache_init(void);

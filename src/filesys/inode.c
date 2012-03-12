@@ -298,24 +298,32 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       else 
         {
           /* We need a bounce buffer. */
-          if (bounce == NULL) 
+  /*        if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
               if (bounce == NULL)
                 break;
             }
-
+*/
           /* If the sector contains data before or after the chunk
              we're writing, then we need to read in the sector
              first.  Otherwise we start with a sector of all zeros. */
-          if (sector_ofs > 0 || chunk_size < sector_left) 
+ /*         if (sector_ofs > 0 || chunk_size < sector_left) 
             //block_read (fs_device, sector_idx, bounce);
             cache_read(sector_idx, bounce);
           else
+            TODO: Question from jeremy:
+              Why do you need to memset to 0 here? It seems if
+              sector ofs > 0 or chunk < BLOCK_SZ .. which is is
+              cause we are in this branch... then we will do a block
+              read... but otherwise wed be writing a whole block??
             memset (bounce, 0, BLOCK_SECTOR_SIZE);
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           //block_write (fs_device, sector_idx, bounce);
           cache_write(sector_idx, bounce);
+*/
+          cache_write_bytes(sector_idx, buffer + bytes_written,
+                        chunk_size, sector_ofs);
         }
 
       /* Advance. */

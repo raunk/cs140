@@ -129,30 +129,38 @@ cache_evict()
 void 
 cache_read(block_sector_t sector, void* buffer)
 {
-  cache_read_bytes(sector, buffer, BLOCK_SECTOR_SIZE);
+  cache_read_bytes(sector, buffer, BLOCK_SECTOR_SIZE, 0);
 }
 
 /* Write a full sector to the cache */
 void 
-cache_write(block_sector_t sector, void* buffer)
+cache_write(block_sector_t sector, const void* buffer)
 {
-  cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE);
+  cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE, 0);
 }
 
 /* Read SIZE bytes from SECTOR into BUFFER */
 void 
-cache_read_bytes(block_sector_t sector, void* buffer, int size)
+cache_read_bytes(block_sector_t sector, void* buffer, int size,
+                        int offset)
 {
   struct cache_elem* c = cache_get(sector);
-  memcpy(buffer, c->data, size);
+  memcpy(buffer + offset, c->data, size);
 }
 
 /* Write SIZE bytes from BUFFER into SECTOR */
-void cache_write_bytes(block_sector_t sector, void* buffer, int size)
+void cache_write_bytes(block_sector_t sector, const void* buffer, 
+      int size, int offset)
 {
   struct cache_elem* c = cache_get(sector);
   c->is_dirty = true;
-  memcpy(c->data, buffer, size);
+
+  if(offset == 0 && size == BLOCK_SECTOR_SIZE)
+    {
+      memset(c->data, 0, BLOCK_SECTOR_SIZE);
+    }
+  
+  memcpy(c->data + offset, buffer, size);
 }
 
 

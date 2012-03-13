@@ -98,8 +98,12 @@ lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  printf("IN Lookup\n");
+
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
+  {
+    printf("Lookup!\n");
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)
@@ -108,6 +112,7 @@ lookup (const struct dir *dir, const char *name,
           *ofsp = ofs;
         return true;
       }
+  }
   return false;
 }
 
@@ -148,13 +153,19 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  printf("IN DIR ADD!\n");
+
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
 
+  
+
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
+
+  printf("COMPLETE LOOKUP\n");
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -163,11 +174,14 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
      inode_read_at() will only return a short read at end of file.
      Otherwise, we'd need to verify that we didn't get a short
      read due to something intermittent such as low memory. */
+  printf("WE ARE HERE\n");
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
-       ofs += sizeof e) 
+       ofs += sizeof e)
+  { 
+    printf("Here!\n");
     if (!e.in_use)
       break;
-
+  }
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);

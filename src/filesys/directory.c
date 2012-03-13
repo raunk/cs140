@@ -104,15 +104,12 @@ lookup (const struct dir *dir, const char *name,
 
   printf("Inode Len %d\n", inode_length(dir->inode));
 
-
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
     printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
 
-
-    printf("Lookup!\n");
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)
@@ -122,7 +119,6 @@ lookup (const struct dir *dir, const char *name,
         return true;
       }
   }
-  printf("Got here...BAD\n");
   return false;
 }
 
@@ -169,8 +165,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
 
-  
-
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
@@ -196,7 +190,20 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
+    printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+        e.inode_sector, e.name, e.in_use); 
+  printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
+      ofs, dir->inode, inode_get_inumber(dir->inode)); 
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+
+  for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+       ofs += sizeof e)
+  { 
+    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+        e.inode_sector, e.name, e.in_use); 
+    if (!e.in_use)
+      break;
+  }
 
  done:
   return success;

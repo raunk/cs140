@@ -67,6 +67,78 @@ init_indirect_block(block_sector_t sector)
     }
 }
 
+void
+print_index(block_sector_t* b)
+{
+  int i;
+  printf("=====\n");
+  for(i = 0; i < 12; i++)
+    printf("%d ", b[i]);
+  printf("\n~~~~\n");
+}
+
+block_sector_t
+handle_direct_block(struct inode* inode, struct inode_disk* info, 
+                      block_sector_t file_sector) 
+{
+  print_index(info->index);
+
+  block_sector_t result = info->index[file_sector];
+  if(result == 0 && inode->sector != FREE_MAP_SECTOR)
+  {
+    free_map_allocate(1, &result);
+    info->index[file_sector] = result; 
+    cache_set_dirty(inode->sector); 
+  }  
+  return result;
+}
+
+void
+print_indirect(block_sector_t sec)
+{
+  struct cache_elem* ib_c = cache_get( sec);
+  struct indirect_block* ib = (struct indirect_block*)ib_c->data;
+  int i;
+  printf("\n");
+  for(i = 0; i < 128; i++)
+  {
+    printf("%d ", ib->pointers[i]);
+    if(i % 32 == 0) printf("\n");
+  }
+  printf("\n");
+}
+
+block_sector_t
+handle_indirect_block(struct inode* inode, struct inode_disk* info,
+                      block_sector_t file_sector)
+{
+  int idx = file_sector - INODE_DIRECT_BLOCK_COUNT;
+
+  block_sector_t ib_sector = info->index[INDIRECT_BLOCK_INDEX];
+
+
+  if(ib_sector == 0)
+    {
+      free_map_allocate(1, &ib_sector);
+      info->index[INDIRECT_BLOCK_INDEX] = ib_sector;
+      init_indirect_block(ib_sector);
+      cache_set_dirty(inode->sector);
+    }
+
+  struct cache_elem* ib_c = cache_get(info->index[INDIRECT_BLOCK_INDEX]);
+  struct indirect_block* ib = (struct indirect_block*)ib_c->data;
+  block_sector_t result = ib->pointers[idx];
+
+  if(result == 0)
+  {
+    free_map_allocate(1, &result);
+    ib->pointers[idx] = result;
+    cache_set_dirty(info->index[INDIRECT_BLOCK_INDEX]);
+  }
+  print_indirect(ib_sector);
+  return result;
+}
+
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
@@ -75,60 +147,21 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-/*  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
-    return -1;
-*/
     // TODO: Fail if bigger pos > 8MB
-    // TODO: Fail if bigger than the file size..?
-    // TODO: Allocate singel and double indirect blocks if 
-    //       they ever come back zero. And when you allocate
-    //       them we also need to zero all of the pointers.
-    //       this will get split into a few helper functions
 
-//    printf("Inode %d, pos %d\n", inode->sector, pos);
-  
     struct cache_elem* c = cache_get(inode->sector);
-
     struct inode_disk* info = (struct inode_disk*)c->data;
-  
     block_sector_t file_sector = pos / BLOCK_SECTOR_SIZE;
+
+    if(pos > inode_length(inode))
+      return -1;
 
     if(file_sector < INODE_DIRECT_BLOCK_COUNT)
     {
-      block_sector_t result = info->index[file_sector];
-      if(result == 0 && inode->sector != FREE_MAP_SECTOR)
-      {
-        free_map_allocate(1, &result);
-        info->index[file_sector] = result; 
-        cache_set_dirty(inode->sector); 
-      }  
-      return result;
+      return handle_direct_block(inode, info, file_sector); 
     }else if(file_sector < INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS)
     {
-      int idx = file_sector - INODE_DIRECT_BLOCK_COUNT;
-
-      block_sector_t ib_sector = info->index[INDIRECT_BLOCK_INDEX];
-      if(ib_sector == 0)
-        {
-          free_map_allocate(1, &ib_sector);
-          info->index[INDIRECT_BLOCK_INDEX] = ib_sector;
-          init_indirect_block(ib_sector);
-          cache_set_dirty(inode->sector);
-        }
-
-      struct cache_elem* ib_c = cache_get(info->index[INDIRECT_BLOCK_INDEX]);
-      struct indirect_block* ib = (struct indirect_block*)ib_c->data;
-      block_sector_t result = ib->pointers[idx];
-
-      if(result == 0)
-      {
-        free_map_allocate(1, &result);
-        ib->pointers[idx] = result;
-        cache_set_dirty(info->index[INDIRECT_BLOCK_INDEX]);
-      }
-      return result;
+      return handle_indirect_block(inode, info, file_sector);
     } else {
       // We are offset 140 block pointers because of the direct 
       // block and singly indirect block, so the 140th block of the 
@@ -212,12 +245,12 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->magic = INODE_MAGIC;
       disk_inode->start = sector;
 
-      if(sector != FREE_MAP_SECTOR &&
-         sector != ROOT_DIR_SECTOR)
-      {
-        free_map_set_used(sector);
-      }
-
+//      if(sector != FREE_MAP_SECTOR &&
+//         sector != ROOT_DIR_SECTOR)
+//      {
+//        free_map_set_used(sector);
+//      }
+//
       size_t j;
       for(j = 0; j < INODE_INDEX_COUNT; j++)
         {
@@ -282,16 +315,22 @@ inode_open (block_sector_t sector)
   /// Just created inode santiy check
   struct cache_elem* c = cache_get(inode->sector);
   struct inode_disk* id = (struct inode_disk*)c->data;
-  printf("INODE OPEN SANITY CHECK==========\n");
-  printf("Inode pointer=%p\n", inode);
-  printf("Cache sector, should show %d, shows %d\n", inode->sector, c->sector);
-  if(sector != 0)
-    printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
-  else
-    printf("Special, free map\n");
-
-//  ASSERT(inode->sector == id->start);
-
+//  printf("INODE OPEN SANITY CHECK==========\n");
+//  printf("Inode pointer=%p\n", inode);
+//  printf("Cache sector, should show %d, shows %d\n", inode->sector, c->sector);
+//  if(sector > 1)
+//  {
+//    printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
+//    printf("Length %d\n", id->length);
+//  }
+//  else if(sector == 0)
+//  {
+//    printf("Special, free map\n");
+//  }else if(sector == 1)
+//  {
+//    printf("Special, root dir\n");
+//  }
+//
   return inode;
 }
 
@@ -346,19 +385,33 @@ inode_close (struct inode *inode)
   if (inode == NULL)
     return;
 
-
+  printf("CLose inode %d\n", inode->sector);
 
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
+      printf("Removing inode %d\n", inode->sector);
+
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
+      struct cache_elem* c = cache_get(inode->sector);
+
+      printf("Removing inode.. is dirty? %d\n", c->is_dirty);
+
+
+      
+
+      struct inode_disk* id = (struct inode_disk*)c->data;
+
+      int i;
+      for(i = 0; i < 12; i++)
+      {
+        printf("Direct block used =%d\n", id->index[i]);
+      }
  
       /* Deallocate blocks if removed. */
       if (inode->removed) 
         {
-          struct cache_elem* c = cache_get(inode->sector);
-          struct inode_disk* id = (struct inode_disk*)c->data;
 
   //        free_direct_blocks(id);
    //       free_indirect_blocks(id);
@@ -401,7 +454,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 
   //printf("Offset=%d, Length=%d\n", offset, inode_length(inode));
 
-  if(offset > inode_length(inode)) 
+  if(offset + size > inode_length(inode)) 
     return 0;
 
   while (size > 0) 
@@ -534,8 +587,8 @@ inode_length (const struct inode *inode)
 
   struct cache_elem* c = cache_get(inode->sector);
   struct inode_disk* id = (struct inode_disk*)c->data;
-  printf("INODE LENGTH SANITY CHECK====\n");
-  printf("sector (inode=%d) == %d?\n", inode->sector, id->start);
-  printf("length = %d?\n", id->length);  
+//  printf("INODE LENGTH SANITY CHECK====\n");
+//  printf("sector (inode=%d) == %d?\n", inode->sector, id->start);
+//  printf("length = %d?\n", id->length);  
   return id->length;
 }

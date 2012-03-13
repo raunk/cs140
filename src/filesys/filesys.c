@@ -60,6 +60,7 @@ filesys_create (const char *name, off_t initial_size)
                   && dir_add (dir, name, inode_sector));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
+  printf("CLose dir\n");
   dir_close (dir);
 
   printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
@@ -110,7 +111,7 @@ do_format (void)
 {
   printf ("Formatting file system...");
   free_map_create ();
-  if (!dir_create (ROOT_DIR_SECTOR, 16))
+  if (!dir_create (ROOT_DIR_SECTOR, 0))
     PANIC ("root directory creation failed");
   free_map_close ();
   printf ("done.\n");

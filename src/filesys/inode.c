@@ -7,6 +7,7 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 #include "filesys/cache.h"
+#include <stdio.h>
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -66,6 +67,8 @@ init_indirect_block(block_sector_t sector)
       ib->pointers[i] = 0; 
     }
 }
+
+
 
 void
 print_index(block_sector_t* b)
@@ -146,7 +149,8 @@ handle_indirect_block(struct inode* inode, struct inode_disk* info,
 static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
-  ASSERT (inode != NULL);
+
+    ASSERT (inode != NULL);
     // TODO: Fail if bigger pos > 8MB
 
     struct cache_elem* c = cache_get(inode->sector);
@@ -207,6 +211,24 @@ byte_to_sector (const struct inode *inode, off_t pos)
       return result;
     }
 }
+
+void
+print_inode_used_blocks(struct inode* inode)
+{
+  printf("###################\n");
+  printf("Blocks used by inode=%d\n", inode_get_inumber(inode));
+  off_t len = inode_length(inode);
+  off_t cur = 0;
+  while(len > 0)
+  {
+    block_sector_t x = byte_to_sector(inode, cur);
+    printf("%d ", x); 
+    cur += BLOCK_SECTOR_SIZE;
+    len -= BLOCK_SECTOR_SIZE; 
+  }
+  printf("\n###################\n");
+}
+
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -313,6 +335,7 @@ inode_open (block_sector_t sector)
   //block_read (fs_device, inode->sector, &inode->data);
 //  cache_read(inode->sector, &inode->data);
   /// Just created inode santiy check
+    print_inode_used_blocks(inode);
   struct cache_elem* c = cache_get(inode->sector);
   struct inode_disk* id = (struct inode_disk*)c->data;
 //  printf("INODE OPEN SANITY CHECK==========\n");
@@ -403,11 +426,6 @@ inode_close (struct inode *inode)
 
       struct inode_disk* id = (struct inode_disk*)c->data;
 
-      int i;
-      for(i = 0; i < 12; i++)
-      {
-        printf("Direct block used =%d\n", id->index[i]);
-      }
  
       /* Deallocate blocks if removed. */
       if (inode->removed) 

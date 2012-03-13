@@ -98,11 +98,17 @@ lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  printf("IN Lookup\n");
+  printf("IN Lookup for name %s\n", name);
+
+  printf("Dir inumber = %d\n", inode_get_inumber(dir->inode)); 
 
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
+    printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
+        e.inode_sector, e.name, e.in_use); 
+
+
     printf("Lookup!\n");
     if (e.in_use && !strcmp (name, e.name)) 
       {
@@ -113,6 +119,7 @@ lookup (const struct dir *dir, const char *name,
         return true;
       }
   }
+  printf("Got here...BAD\n");
   return false;
 }
 

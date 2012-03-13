@@ -213,3 +213,12 @@ cache_flush(void)
 
   //TODO: free list and cache elems..
 }
+
+
+
+void 
+cache_set_dirty(block_sector_t sector)
+{
+  struct cache_elem* c = cache_get(sector);
+  c->is_dirty = true;
+}

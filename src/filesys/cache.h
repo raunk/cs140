@@ -30,4 +30,6 @@ void cache_stats(void);
 
 void cache_flush(void);
 
+void cache_set_dirty(block_sector_t sector);
+
 #endif /* filesys/cache.h */

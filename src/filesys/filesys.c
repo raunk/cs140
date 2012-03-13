@@ -62,6 +62,9 @@ filesys_create (const char *name, off_t initial_size)
     free_map_release (inode_sector, 1);
   dir_close (dir);
 
+  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
+      name, inode_sector);
+
   return success;
 }
 

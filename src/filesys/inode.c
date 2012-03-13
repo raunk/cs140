@@ -51,7 +51,7 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
+//    struct inode_disk data;             /* Inode content. */
   };
 
 
@@ -102,6 +102,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
       {
         free_map_allocate(1, &result);
         info->index[file_sector] = result; 
+        cache_set_dirty(inode->sector); 
       }  
       return result;
     }else if(file_sector < INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS)
@@ -114,6 +115,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
           free_map_allocate(1, &ib_sector);
           info->index[INDIRECT_BLOCK_INDEX] = ib_sector;
           init_indirect_block(ib_sector);
+          cache_set_dirty(inode->sector);
         }
 
       struct cache_elem* ib_c = cache_get(info->index[INDIRECT_BLOCK_INDEX]);
@@ -124,6 +126,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
       {
         free_map_allocate(1, &result);
         ib->pointers[idx] = result;
+        cache_set_dirty(info->index[INDIRECT_BLOCK_INDEX]);
       }
       return result;
     } else {
@@ -143,6 +146,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
           free_map_allocate(1, &ib_sector);
           info->index[DOUBLY_INDIRECT_BLOCK_INDEX] = ib_sector;
           init_indirect_block(ib_sector);
+          cache_set_dirty(inode->sector);
         }
 
       struct cache_elem* ib_c = cache_get(info->index[DOUBLY_INDIRECT_BLOCK_INDEX]);
@@ -154,6 +158,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
           free_map_allocate(1, &next_block);
           ib->pointers[first_idx] = next_block;
           init_indirect_block(next_block);
+          cache_set_dirty(info->index[DOUBLY_INDIRECT_BLOCK_INDEX]);
         }
 
       
@@ -164,6 +169,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
       {
         free_map_allocate(1, &result);
         ib_2->pointers[second_idx] = result;
+        cache_set_dirty(next_block);
       }
       return result;
     }
@@ -289,6 +295,13 @@ inode_open (block_sector_t sector)
   //block_read (fs_device, inode->sector, &inode->data);
 //  cache_read(inode->sector, &inode->data);
   printf("inode=%p\n", inode);
+  /// Just created inode santiy check
+  struct cache_elem* c = cache_get(inode->sector);
+  struct inode_disk* id = (struct inode_disk*)c->data;
+  printf("INODE OPEN SANITY CHECK==========\n");
+  printf("Cache sector, should show %d, shows %d\n", inode->sector, c->sector);
+  printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
+
   return inode;
 }
 

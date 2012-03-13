@@ -102,6 +102,9 @@ lookup (const struct dir *dir, const char *name,
 
   printf("Dir inumber = %d\n", inode_get_inumber(dir->inode)); 
 
+  printf("Inode Len %d\n", inode_length(dir->inode));
+
+
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {

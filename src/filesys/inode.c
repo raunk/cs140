@@ -285,7 +285,10 @@ inode_open (block_sector_t sector)
   printf("INODE OPEN SANITY CHECK==========\n");
   printf("Inode pointer=%p\n", inode);
   printf("Cache sector, should show %d, shows %d\n", inode->sector, c->sector);
-  printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
+  if(sector != 0)
+    printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
+  else
+    printf("Special, free map\n");
 
 //  ASSERT(inode->sector == id->start);
 
@@ -433,6 +436,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
+  printf("read at read %d\n", bytes_read);
   return bytes_read;
 }
 
@@ -525,6 +529,9 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
+  if(inode->sector == FREE_MAP_SECTOR)
+    return BLOCK_SECTOR_SIZE;
+
   struct cache_elem* c = cache_get(inode->sector);
   struct inode_disk* id = (struct inode_disk*)c->data;
   printf("INODE LENGTH SANITY CHECK====\n");

@@ -4,7 +4,7 @@
 #include "filesys/filesys.h"
 #include <string.h>
 #include <stdio.h>
-
+#include "threads/synch.h"
 
 static struct list cache_list;
 static struct hash cache_hash;
@@ -22,6 +22,8 @@ static bool cache_less_fn (const struct hash_elem *a_,
 
 static int cache_hits;
 static int cache_misses;
+
+struct cache_elem free_map_cache;
 
 /* Hash function for cache hash */
 static unsigned 
@@ -54,6 +56,10 @@ cache_init()
   hash_init(&cache_hash, cache_hash_fn, cache_less_fn, NULL); 
   cache_hits = 0;
   cache_misses = 0;
+
+
+  // Free map always available
+  free_map_cache.sector = FREE_MAP_SECTOR;
 }
 
 /* Return number of elements in the cache */
@@ -68,6 +74,9 @@ cache_size()
 static struct cache_elem*
 cache_lookup(block_sector_t sector)
 {
+  if(sector == FREE_MAP_SECTOR)
+    return &free_map_cache;
+
   struct cache_elem c;
   c.sector = sector;
 
@@ -144,7 +153,12 @@ void
 cache_read_bytes(block_sector_t sector, void* buffer, int size,
                         int offset)
 {
-  struct cache_elem* c = cache_get(sector);
+  struct cache_elem* c;
+  if(sector == FREE_MAP_SECTOR)
+    c = &free_map_cache; 
+  else
+    c = cache_get(sector);
+
   memcpy(buffer + offset, c->data, size);
 }
 
@@ -152,7 +166,12 @@ cache_read_bytes(block_sector_t sector, void* buffer, int size,
 void cache_write_bytes(block_sector_t sector, const void* buffer, 
       int size, int offset)
 {
-  struct cache_elem* c = cache_get(sector);
+  struct cache_elem* c;
+  if(sector == FREE_MAP_SECTOR)
+    c = &free_map_cache; 
+  else
+    c = cache_get(sector);
+
   c->is_dirty = true;
 
   if(offset == 0 && size == BLOCK_SECTOR_SIZE)
@@ -170,6 +189,10 @@ cache_get(block_sector_t sector)
 {
   struct cache_elem* c = cache_lookup(sector);
   // If it was already in the cache, move it to the front
+
+  if(sector == FREE_MAP_SECTOR)
+    return c; 
+
   if(c)
    {
     cache_reinsert(c);
@@ -210,6 +233,7 @@ cache_flush(void)
         block_write(fs_device, c->sector, c->data);
     }
 
+  block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
 
   //TODO: free list and cache elems..
 }

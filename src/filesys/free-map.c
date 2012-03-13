@@ -19,6 +19,13 @@ free_map_init (void)
   bitmap_mark (free_map, ROOT_DIR_SECTOR);
 }
 
+
+void
+free_map_set_used(block_sector_t sector)
+{
+  bitmap_mark (free_map, sector);
+}
+
 /* Allocates CNT consecutive sectors from the free map and stores
    the first into *SECTORP.
    Returns true if successful, false if not enough consecutive

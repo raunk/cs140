@@ -115,6 +115,15 @@ cache_reinsert(struct cache_elem* elem)
   list_push_front(&cache_list, &elem->list_elem);
 }
 
+struct inode_disk
+  {
+    block_sector_t start;               /* First data sector. */
+    off_t length;                       /* File size in bytes. */
+    unsigned magic;                     /* Magic number. */
+    block_sector_t index[14];         
+    bool is_dir;
+    uint32_t unused[110];               /* Not used. */
+  };
 
 /* We are out of room in the cache
    so evict the elemet at the back of the list */
@@ -127,6 +136,23 @@ cache_evict()
 
   if(c->is_dirty)
     {
+      printf("Writing %d\n", c->sector);
+
+      if(c->sector == 1)
+        {
+          printf("WRITING ROOT DIR\n");
+          struct inode_disk* id = (struct inode_disk*)c->data;
+         
+          printf("Start = %d\n", id->start);
+          printf("Len = %d\n", id->length);
+ 
+          int i;
+          for(i = 0; i < 12; i++)
+            printf("%d ", id->index[i]);
+          printf("\n");
+          
+        }
+
       block_write(fs_device, c->sector, c->data);
     } 
 
@@ -189,6 +215,21 @@ cache_get(block_sector_t sector)
 {
   struct cache_elem* c = cache_lookup(sector);
   // If it was already in the cache, move it to the front
+
+  if(c && sector == 1)
+    {
+      printf("WRITING ROOT DIR\n");
+      struct inode_disk* id = (struct inode_disk*)c->data;
+     
+      printf("Start = %d\n", id->start);
+      printf("Len = %d\n", id->length);
+
+      int i;
+      for(i = 0; i < 12; i++)
+        printf("%d ", id->index[i]);
+      printf("\n");
+    }
+
 
   if(sector == FREE_MAP_SECTOR)
     return c; 

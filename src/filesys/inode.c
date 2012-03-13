@@ -417,19 +417,19 @@ inode_close (struct inode *inode)
 
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
-      struct cache_elem* c = cache_get(inode->sector);
-
-      printf("Removing inode.. is dirty? %d\n", c->is_dirty);
-
-
-      
-
-      struct inode_disk* id = (struct inode_disk*)c->data;
 
  
       /* Deallocate blocks if removed. */
       if (inode->removed) 
         {
+            struct cache_elem* c = cache_get(inode->sector);
+
+            printf("Removing inode.. is dirty? %d\n", c->is_dirty);
+
+
+            
+
+            struct inode_disk* id = (struct inode_disk*)c->data;
 
   //        free_direct_blocks(id);
    //       free_indirect_blocks(id);

@@ -81,7 +81,7 @@ block_sector_t
 handle_direct_block(struct inode* inode, struct inode_disk* info, 
                       block_sector_t file_sector) 
 {
-  print_index(info->index);
+  //print_index(info->index);
 
   block_sector_t result = info->index[file_sector];
   if(result == 0 && inode->sector != FREE_MAP_SECTOR)
@@ -135,7 +135,7 @@ handle_indirect_block(struct inode* inode, struct inode_disk* info,
     ib->pointers[idx] = result;
     cache_set_dirty(info->index[INDIRECT_BLOCK_INDEX]);
   }
-  print_indirect(ib_sector);
+  //print_indirect(ib_sector);
   return result;
 }
 

@@ -58,27 +58,30 @@ dir_open (struct inode *inode)
     }
 }
 
+/* Return a pointer to the directory struct given a full
+ * path name NAME. For example, given the pathname
+ * a/b/c/d
+ * this will open and return the directory for a/b/c
+ * */
 struct dir* 
 dir_open_parent(const char* name)
 {
-  printf("Open parent directory for file %s\n", name);
-
+  // Make a copy of the pathname so we can modify it
   int len = strlen(name);
   char cpy[len + 1];
   strlcpy(cpy, name, len + 1);
-  printf("Our copy = %s\n", cpy);
 
   char* last_slash = strrchr(cpy, '/');
+  // We are in the root directory
   if(last_slash == 0)
   {
-    printf("Was in top level dir, return root\n");
     return dir_open_root();
   }
 
+  // Set the last slash to null, so we can look
+  // for the file path without the last component
   last_slash[0] = '\0';
-  printf("Cpy now= %s\n", cpy);
   struct inode* parent_dir = filesys_lookup(cpy);
-  printf("Inode = %d\n", inode_get_inumber(parent_dir));
   return dir_open(parent_dir);
 }
 

@@ -440,30 +440,25 @@ static void syscall_mkdir(struct intr_frame *f)
   {
     success = false;
   }else{
-    // TODO: what if trailing slash?
-    /*char* last_slash = strrchr(dir, '/');
-    last_slash = '\0';
-    struct inode* parent_dir = filesys_lookup(dir);
-   */ 
-    // call dir_add here with the new name
-    // adding to the parent
-    // Create the new directory
+    // The parent directory must already exist
     struct dir* parent_dir = dir_open_parent(dir);
     if(parent_dir != NULL)
     {
-      printf("Found parent dir\n");
-      //allocate an inode?? 
+      // Allocate an inode
       block_sector_t result;
       free_map_allocate(1, &result);
       inode = inode_open(result);
  
-      // create a new directoyr here
+      // Create a new directory
       struct inode* parent_inode = dir_get_inode(parent_dir);
       dir_create(result, inode_get_inumber(parent_inode));
+
+      // Add this directory to its parent 
       char name[NAME_MAX + 1];
       last_path_component(dir, name); 
-      printf("Dir name = %s\n", name);
       dir_add(parent_dir, name, result);
+    }else{
+      success = false;
     }
   }
 

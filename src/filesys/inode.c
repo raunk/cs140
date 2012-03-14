@@ -153,6 +153,9 @@ byte_to_sector (const struct inode *inode, off_t pos)
     ASSERT (inode != NULL);
     // TODO: Fail if bigger pos > 8MB
 
+    if(inode->sector == FREE_MAP_SECTOR)
+      return FREE_MAP_SECTOR;
+
     struct cache_elem* c = cache_get(inode->sector);
     struct inode_disk* info = (struct inode_disk*)c->data;
     block_sector_t file_sector = pos / BLOCK_SECTOR_SIZE;
@@ -279,6 +282,7 @@ inode_create (block_sector_t sector, off_t length)
           disk_inode->index[j] = 0; // Mark this block as unused
         }
 
+      printf("Cache write in I_CREATE\n");
       cache_write(sector, disk_inode);
       
       /// Just created inode santiy check
@@ -534,8 +538,8 @@ off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
-//  printf("Inode write at inode=%d, %d bytes, offset =%d\n",
-//        inode->sector, size, offset);
+  printf("Inode write at inode=%d, %d bytes, offset =%d\n",
+        inode->sector, size, offset);
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
@@ -559,6 +563,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           /* Write full sector directly to disk. */
+          printf("Cache write in I_WRITE_AT, to sec=%d\n", sector_idx);
           cache_write(sector_idx, buffer + bytes_written);
         }
       else 

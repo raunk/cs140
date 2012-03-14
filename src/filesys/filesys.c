@@ -95,22 +95,22 @@ first_path_component(const char* pathname, char* dest)
 struct inode*
 filesys_lookup_recursive(const char* pathname, struct dir* cur)
 {
-  char buf[NAME_MAX + 1];
+  char component[NAME_MAX + 1];
 
   while(pathname[0] == '/')
     pathname++;
 
-  bool is_last_component = first_path_component(pathname, buf);
+  bool is_last_component = first_path_component(pathname, component);
 
   struct inode* inode = NULL;
 
-  dir_lookup(cur, buf, &inode);
-
+  dir_lookup(cur, component, &inode);
+  dir_close(cur);
   if(is_last_component)
   {
     return inode; 
   }else{
-    return filesys_lookup_recursive(pathname + strlen(buf), inode);    
+    return filesys_lookup_recursive(pathname + strlen(component), inode);    
   }
 }
 

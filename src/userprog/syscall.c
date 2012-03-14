@@ -437,23 +437,31 @@ static void syscall_mkdir(struct intr_frame *f)
   {
     success = false;
   }else{
+    // TODO: what if trailing slash?
     char* last_slash = strrchr(dir, '/');
     last_slash = '\0';
     struct inode* parent_dir = filesys_lookup(dir);
+    
     // call dir_add here with the new name
     // adding to the parent
     // Create the new directory
     if(parent_dir != NULL)
     {
-      // create a new directoyr here
       //allocate an inode?? 
-
-    }  
+      block_sector_t result;
+      free_map_allocate(1, &result);
+      inode = inode_open(result);
+ 
+      // create a new directoyr here
+      dir_create(inode->sector, parent_dir->sector);
+      struct dir* parent_dir_ptr = dir_open(parent_dir);
+      char *name = last_slash + 1;
+      dir_add(parent_dir_ptr, name, result);
+    }
+    last_slash = '/';
   }
-   
 
   f->eax = success;
-
 }
 
 static void syscall_readdir(struct intr_frame *f)

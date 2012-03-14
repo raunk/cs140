@@ -62,6 +62,12 @@ dir_open (struct inode *inode)
  * path name NAME. For example, given the pathname
  * a/b/c/d
  * this will open and return the directory for a/b/c
+ *
+ * Additionally, files with no slashes are assumed to come
+ * from the root, for example if name = "hello", the parent is
+ * "/"
+ *
+ * Likewise, for files lke "/hello", the parent is also "/"
  * */
 struct dir* 
 dir_open_parent(const char* name)
@@ -71,17 +77,26 @@ dir_open_parent(const char* name)
   char cpy[len + 1];
   strlcpy(cpy, name, len + 1);
 
+/*  printf("Open parent of=%s\n", name);
+
+  printf("Our cpy = %s\n", cpy);
+*/
   char* last_slash = strrchr(cpy, '/');
   // We are in the root directory
-  if(last_slash == 0)
+  if(last_slash == 0 || last_slash == cpy)
   {
+ //   printf("IN ROOT!\n");
     return dir_open_root();
   }
 
   // Set the last slash to null, so we can look
   // for the file path without the last component
   last_slash[0] = '\0';
+
+  printf("Cpy now = %s\n", cpy);
+
   struct inode* parent_dir = filesys_lookup(cpy);
+  
   return dir_open(parent_dir);
 }
 

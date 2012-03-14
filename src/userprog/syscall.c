@@ -432,7 +432,13 @@ static void syscall_mkdir(struct intr_frame *f)
   syscall_check_user_pointer(dir, f);
   bool success = true;
 
+  printf("###### MKDIR SYSCALL\n");
+  printf("Make dir fullpath=%s\n", dir);
+
   struct inode* inode = filesys_lookup(dir);
+  printf("Complete lookup for inode %p\n", inode);
+  
+
   // This directory should not exist
   if(inode != NULL)
   {
@@ -440,6 +446,7 @@ static void syscall_mkdir(struct intr_frame *f)
   }else{
     // The parent directory must already exist
     struct dir* parent_dir = dir_open_parent(dir);
+    printf("Got parent %p\n", parent_dir);
     if(parent_dir != NULL)
     {
       // Allocate an inode
@@ -454,11 +461,16 @@ static void syscall_mkdir(struct intr_frame *f)
       // Add this directory to its parent 
       char name[NAME_MAX + 1];
       last_path_component(dir, name); 
+      
+      printf("Name=%s\n", name);
       dir_add(parent_dir, name, result);
     }else{
+      printf("Parent dir was null\n");
       success = false;
     }
   }
+  
+  printf("####### END MKDIR SYSCALL\n");
 
   f->eax = success;
 }

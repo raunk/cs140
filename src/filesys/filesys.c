@@ -137,22 +137,37 @@ first_path_component(const char* pathname, char* dest)
 struct inode*
 filesys_lookup_recursive(const char* pathname, struct dir* cur)
 {
+
+
   char component[NAME_MAX + 1];
 
   while(pathname[0] == '/')
     pathname++;
 
+  printf("Lookup in pathname %s\n", pathname);
+
   bool is_last_component = first_path_component(pathname, component);
+
+  printf("First component '%s'\n", component);
 
   struct inode* inode = NULL;
 
-  dir_lookup(cur, component, &inode);
+  bool found = dir_lookup(cur, component, &inode);
   dir_close(cur);
+  
+  printf("Found component? %d\n", found);
+
+  if(!found)
+    return NULL;
+
+
   if(is_last_component)
   {
+    printf("Was last component\n");
     return inode; 
   }else{
-    return filesys_lookup_recursive(pathname + strlen(component), inode);    
+    struct dir* next = dir_open(inode);
+    return filesys_lookup_recursive(pathname + strlen(component), next);    
   }
 }
 
@@ -170,11 +185,15 @@ is_relative_path(const char* pathname)
 struct inode* 
 filesys_lookup(const char* pathname)
 {
+  printf("Lookup %s\n", pathname);
+
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
+    printf("Relative\n");
     start_dir = dir_open(inode_open(thread_get_working_directory_inumber())); 
   }else{
+    printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
 

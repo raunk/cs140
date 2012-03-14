@@ -472,7 +472,7 @@ static void syscall_mkdir(struct intr_frame *f)
     }
   }
   
-  printf("####### END MKDIR SYSCALL\n");
+//  printf("####### END MKDIR SYSCALL\n");
 
   f->eax = success;
 }

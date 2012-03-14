@@ -93,7 +93,7 @@ dir_open_parent(const char* name)
   // for the file path without the last component
   last_slash[0] = '\0';
 
-  printf("Cpy now = %s\n", cpy);
+//  printf("Cpy now = %s\n", cpy);
 
   struct inode* parent_dir = filesys_lookup(cpy);
   

@@ -185,15 +185,15 @@ is_relative_path(const char* pathname)
 struct inode* 
 filesys_lookup(const char* pathname)
 {
-  printf("Lookup %s\n", pathname);
+//  printf("Lookup %s\n", pathname);
 
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
-    printf("Relative\n");
+ //   printf("Relative\n");
     start_dir = dir_open(inode_open(thread_get_working_directory_inumber())); 
   }else{
-    printf("Absolute\n");
+  //  printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
 

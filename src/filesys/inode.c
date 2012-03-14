@@ -413,12 +413,10 @@ inode_close (struct inode *inode)
   if (inode == NULL)
     return;
 
-  printf("CLose inode %d\n", inode->sector);
 
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
-      printf("Removing inode %d\n", inode->sector);
 
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
@@ -428,11 +426,6 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
             struct cache_elem* c = cache_get(inode->sector);
-
-            printf("Removing inode.. is dirty? %d\n", c->is_dirty);
-
-
-            
 
             struct inode_disk* id = (struct inode_disk*)c->data;
 

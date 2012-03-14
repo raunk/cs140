@@ -19,6 +19,7 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "filesys/inode.h"
+#include "filesys/directory.h"
 #include <stdbool.h>
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
@@ -431,6 +432,8 @@ static void syscall_mkdir(struct intr_frame *f)
   syscall_check_user_pointer(dir, f);
   bool success = true;
 
+  printf("MKDIR %s\n", dir);
+
   struct inode* inode = filesys_lookup(dir);
   // This directory should not exist
   if(inode != NULL)
@@ -438,27 +441,30 @@ static void syscall_mkdir(struct intr_frame *f)
     success = false;
   }else{
     // TODO: what if trailing slash?
-    char* last_slash = strrchr(dir, '/');
+    /*char* last_slash = strrchr(dir, '/');
     last_slash = '\0';
     struct inode* parent_dir = filesys_lookup(dir);
-    
+   */ 
     // call dir_add here with the new name
     // adding to the parent
     // Create the new directory
+    struct dir* parent_dir = dir_open_parent(dir);
     if(parent_dir != NULL)
     {
+      printf("Found parent dir\n");
       //allocate an inode?? 
       block_sector_t result;
       free_map_allocate(1, &result);
       inode = inode_open(result);
  
       // create a new directoyr here
-      dir_create(result, inode_get_inumber(parent_dir));
-      struct dir* parent_dir_ptr = dir_open(parent_dir);
-      char *name = last_slash + 1;
-      dir_add(parent_dir_ptr, name, result);
+      struct inode* parent_inode = dir_get_inode(parent_dir);
+      dir_create(result, inode_get_inumber(parent_inode));
+      char name[NAME_MAX + 1];
+      last_path_component(dir, name); 
+      printf("Dir name = %s\n", name);
+      dir_add(parent_dir, name, result);
     }
-    last_slash = '/';
   }
 
   f->eax = success;

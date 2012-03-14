@@ -58,6 +58,31 @@ dir_open (struct inode *inode)
     }
 }
 
+struct dir* 
+dir_open_parent(const char* name)
+{
+  printf("Open parent directory for file %s\n", name);
+
+  int len = strlen(name);
+  char cpy[len + 1];
+  strlcpy(cpy, name, len + 1);
+  printf("Our copy = %s\n", cpy);
+
+  char* last_slash = strrchr(cpy, '/');
+  if(last_slash == 0)
+  {
+    printf("Was in top level dir, return root\n");
+    return dir_open_root();
+  }
+
+  last_slash[0] = '\0';
+  printf("Cpy now= %s\n", cpy);
+  struct inode* parent_dir = filesys_lookup(cpy);
+  printf("Inode = %d\n", inode_get_inumber(parent_dir));
+  return dir_open(parent_dir);
+}
+
+
 /* Opens the root directory and returns a directory for it.
    Return true if successful, false on failure. */
 struct dir *
@@ -155,6 +180,8 @@ dir_lookup (const struct dir *dir, const char *name,
 bool
 dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 {
+  printf("Want to create file named=%s\n", name);
+
   struct dir_entry e;
   off_t ofs;
   bool success = false;
@@ -199,9 +226,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
   { 
-/*    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
-*/
+
     if (!e.in_use)
       break;
   }

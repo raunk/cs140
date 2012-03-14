@@ -45,7 +45,36 @@ filesys_done (void)
   cache_stats();
   cache_flush();
 }
-
+
+
+/* Copy the last path component of PATHNAME into the buffer DEST.
+ * Return a boolean of whether or not a valid pathname was copied.
+ * If the path is something like:
+ *    /a/b/cde         
+ * then "cde" will be copied, and true returned. 
+ * If it is like
+ *    /a/b/cde/
+ * then false will be returned. 
+ * If there is no slash then we simply copy the full path name */
+bool
+last_path_component(const char* pathname, char* dest)
+{
+  int path_len = strlen(pathname);
+  char* last_slash = strrchr(pathname, '/');
+  if(last_slash != NULL)
+  {
+    int len = path_len - ( last_slash - pathname);
+    printf("Len = %d\n", len);
+    strlcpy(dest, last_slash + 1, len); 
+    return len != 1;
+  }
+  // Then there is no slash so the full path is the last 
+  // path component.
+  strlcpy(dest, pathname, path_len + 1);
+  return true;
+}
+
+
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
@@ -54,20 +83,37 @@ bool
 filesys_create (const char *name, off_t initial_size) 
 {
   block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
+  printf("Create file with fullpath = %s\n", name);
+  //struct dir *dir = dir_open_root ();
+
+  //TODO: Write method dir_open_filename()
+  //
+  //struct dir* dir = dir_open(inode_open(filesys_lookup(name));
+
+  // Open the parent directory
+  struct dir* dir = dir_open_parent(name);
+
+  printf("Parent dir=%p\n", dir);
+  char file_name[NAME_MAX + 1]; 
+  bool is_file = last_path_component(name, file_name); 
+  printf("Create a file with filename=%s\n", file_name);
+
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size)
-                  && dir_add (dir, name, inode_sector));
+                  && dir_add (dir, file_name, inode_sector));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
 
-  /*printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
-      name, inode_sector);
-*/
+//  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
+//      name, inode_sector);
+//
+
   return success;
 }
+
+
 
 /* Copy the first path component to DEST and return 
    whether or not this was the last component in the path

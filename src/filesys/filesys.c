@@ -64,7 +64,6 @@ last_path_component(const char* pathname, char* dest)
   if(last_slash != NULL)
   {
     int len = path_len - ( last_slash - pathname);
-    printf("Len = %d\n", len);
     strlcpy(dest, last_slash + 1, len); 
     return len != 1;
   }

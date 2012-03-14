@@ -432,8 +432,6 @@ static void syscall_mkdir(struct intr_frame *f)
   syscall_check_user_pointer(dir, f);
   bool success = true;
 
-  printf("MKDIR %s\n", dir);
-
   struct inode* inode = filesys_lookup(dir);
   // This directory should not exist
   if(inode != NULL)

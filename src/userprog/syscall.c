@@ -18,6 +18,8 @@
 #include <string.h>
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "filesys/inode.h"
+#include <stdbool.h>
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
                     struct intr_frame * f);
@@ -39,6 +41,11 @@ static void syscall_tell(struct intr_frame *f);
 static void syscall_close(struct intr_frame *f);
 static void syscall_mmap(struct intr_frame *f);
 static void syscall_munmap(struct intr_frame *f);
+static void syscall_chdir(struct intr_frame *f);
+static void syscall_mkdir(struct intr_frame *f);
+static void syscall_readdir(struct intr_frame *f);
+static void syscall_isdir(struct intr_frame *f);
+static void syscall_inumber(struct intr_frame *f);
 
 static void unmap_file_helper(struct mmap_elem* map_elem);
 void unmap_file(struct hash_elem* elem, void* aux UNUSED);
@@ -284,6 +291,16 @@ syscall_handler (struct intr_frame *f)
     syscall_mmap(f);
   } else if(sys_call_number == SYS_MUNMAP) {
     syscall_munmap(f);
+  } else if(sys_call_number == SYS_CHDIR) {
+    syscall_chdir(f);
+  } else if(sys_call_number == SYS_MKDIR) {
+    syscall_mkdir(f);
+  } else if(sys_call_number == SYS_READDIR) {
+    syscall_readdir(f);
+  } else if(sys_call_number == SYS_ISDIR) {
+    syscall_isdir(f);
+  } else if(sys_call_number == SYS_INUMBER) {
+    syscall_inumber(f);
   }
 }
 
@@ -387,6 +404,44 @@ syscall_exit(struct intr_frame *f)
   
   f->eax = status;
   exit_current_process(status);
+}
+
+static void syscall_chdir(struct intr_frame *f)
+{
+  void* esp = f->esp;
+  char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
+  syscall_check_user_pointer(dir, f);
+  bool success = true;
+
+  struct inode* inode = filesys_lookup(dir);
+
+  if(inode == NULL)
+  {
+    success = false;
+  }else{
+    thread_current()->working_directory_inumber = inode_get_inumber(inode);
+  }
+  f->eax = success;
+}
+
+static void syscall_mkdir(struct intr_frame *f)
+{
+
+}
+
+static void syscall_readdir(struct intr_frame *f)
+{
+
+}
+
+static void syscall_isdir(struct intr_frame *f)
+{
+
+}
+
+static void syscall_inumber(struct intr_frame *f)
+{
+
 }
 
 /* Memory map system call. We take a file descriptor and 

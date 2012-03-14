@@ -144,18 +144,18 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   while(pathname[0] == '/')
     pathname++;
 
-  printf("Lookup in pathname %s\n", pathname);
+  //printf("Lookup in pathname %s\n", pathname);
 
   bool is_last_component = first_path_component(pathname, component);
 
-  printf("First component '%s'\n", component);
+  //printf("First component '%s'\n", component);
 
   struct inode* inode = NULL;
 
   bool found = dir_lookup(cur, component, &inode);
   dir_close(cur);
   
-  printf("Found component? %d\n", found);
+  //printf("Found component? %d\n", found);
 
   if(!found)
     return NULL;
@@ -163,7 +163,7 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
 
   if(is_last_component)
   {
-    printf("Was last component\n");
+    //printf("Was last component\n");
     return inode; 
   }else{
     struct dir* next = dir_open(inode);

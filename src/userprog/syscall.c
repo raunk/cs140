@@ -453,7 +453,7 @@ static void syscall_mkdir(struct intr_frame *f)
       inode = inode_open(result);
  
       // create a new directoyr here
-      dir_create(inode->sector, parent_dir->sector);
+      dir_create(result, inode_get_inumber(parent_dir));
       struct dir* parent_dir_ptr = dir_open(parent_dir);
       char *name = last_slash + 1;
       dir_add(parent_dir_ptr, name, result);

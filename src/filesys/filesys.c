@@ -7,6 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "filesys/cache.h"
+#include "threads/thread.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -68,6 +69,88 @@ filesys_create (const char *name, off_t initial_size)
   return success;
 }
 
+/* Copy the first path component to DEST and return 
+   whether or not this was the last component in the path
+  */   
+bool
+first_path_component(const char* pathname, char* dest)
+{
+  char* next_slash = strchr(pathname, '/');
+  int first_component_length;
+  bool is_last;
+  if(next_slash == NULL)
+  {
+    first_component_length = strlen(pathname);      
+    is_last = true;
+  }else{
+    first_component_length = next_slash - pathname; 
+    is_last = false;
+  }
+  strlcpy(dest, pathname, first_component_length + 1); 
+
+  return is_last;
+}
+
+
+struct inode*
+filesys_lookup_recursive(const char* pathname, struct inode* cur)
+{
+  char buf[NAME_MAX + 1];
+
+  while(pathname[0] == '/')
+    pathname++;
+
+  bool is_last_component = first_path_component(pathname, buf);
+
+  printf("First path component %s\n", buf);
+  printf("Is last component ? %d\n", is_last_component);
+  
+  struct inode* inode = NULL;
+
+  printf("Current inode=%d\n", inode_get_inumber(cur));
+
+  dir_lookup(cur, buf, &inode);
+
+  if(is_last_component)
+  {
+    printf("Found inode = %d\n", inode_get_inumber(inode));
+    return inode; 
+  }else{
+    return filesys_lookup_recursive(pathname + strlen(buf), inode);    
+  }
+}
+
+bool
+is_relative_path(const char* pathname)
+{
+  return pathname[0] != '/';
+}
+
+/* Lookup an inode given a pathname. We use a different inode
+   to start depending on whether this is an absolute or relative
+   path */
+struct inode* 
+filesys_lookup(const char* pathname)
+{
+  struct inode* start_dir = NULL; 
+  if(is_relative_path(pathname))
+  {
+    printf("is relative\n");
+    start_dir = inode_open(thread_get_working_directory_inumber()); 
+  }else{
+    printf("is absolute\n");
+    start_dir = inode_open(ROOT_DIR_SECTOR); 
+  }
+
+  printf("Start dir = %d\n", inode_get_inumber(start_dir));
+
+  printf("Lookup full path = %s\n", pathname);
+
+  return filesys_lookup_recursive(pathname, start_dir); 
+}
+
+
+
 /* Opens the file with the given NAME.
    Returns the new file if successful or a null pointer
    otherwise.
@@ -76,7 +159,7 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = dir_open_root ();
+ /* struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
   //printf("Dir = %p\n", dir);
@@ -84,9 +167,9 @@ filesys_open (const char *name)
   if (dir != NULL)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
-
+*/
   //printf("Call file_open(%p)\n", inode);
-
+  struct inode* inode = filesys_lookup(name);
   return file_open (inode);
 }
 

@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "threads/fixed-point.h"
+#include "filesys/filesys.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -133,6 +134,14 @@ mmap_less_fn(const struct hash_elem *a_, const struct hash_elem *b_,
   const struct mmap_elem *b = hash_entry(b_, struct mmap_elem, elem); 
 
   return a->map_id < b->map_id;
+}
+
+
+/* Get the i-number of the current thread's working directory */
+block_sector_t 
+thread_get_working_directory_inumber()
+{
+  return thread_current()->working_directory_inumber;
 }
 
 
@@ -995,6 +1004,9 @@ init_thread (struct thread *t, const char *name, int priority)
     list_push_back(&cur->child_list, &t->child_elem);
     t->parent = cur;
   }
+
+
+  t->working_directory_inumber = ROOT_DIR_SECTOR;
   
   t->waited_on_by = -1; 
   t->exit_status = 0;

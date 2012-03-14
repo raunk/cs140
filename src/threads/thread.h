@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include <hash.h>
+#include "devices/block.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -134,6 +136,9 @@ struct thread
     int exit_status;    /* Exit status for this thread */
     int load_status;    /* Load status for this thread */
     
+    /* i-number of thread's working directory */
+    block_sector_t working_directory_inumber; 
+//    struct inode* working_directory; /* Thread's working directory */ 
 
     struct file* executing_file;
 
@@ -245,5 +250,9 @@ bool is_thread (struct thread *);
 void thread_setup_mmap(struct thread* t);
 int thread_add_mmap_entry(void* vaddr, int length, struct inode* inode);
 struct mmap_elem* thread_lookup_mmap_entry(int map_id);
+
+/* Get working directory */
+block_sector_t thread_get_working_directory_inumber(void); 
+
 
 #endif /* threads/thread.h */

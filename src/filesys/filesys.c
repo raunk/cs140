@@ -92,6 +92,10 @@ first_path_component(const char* pathname, char* dest)
 }
 
 
+/* Recursively lookup pathname starting at directory CUR.
+ * We find the first path component, and if that is also
+ * the last component, open the file. Otherwise we continue
+ * the recursive search */
 struct inode*
 filesys_lookup_recursive(const char* pathname, struct dir* cur)
 {
@@ -114,6 +118,8 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   }
 }
 
+/* Return whether it is a relative path. It is absolute if it
+ * starts with / */
 bool
 is_relative_path(const char* pathname)
 {

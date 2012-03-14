@@ -79,13 +79,13 @@ filesys_open (const char *name)
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
-  printf("Dir = %p\n", dir);
+  //printf("Dir = %p\n", dir);
 
   if (dir != NULL)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
 
-  printf("Call file_open(%p)\n", inode);
+  //printf("Call file_open(%p)\n", inode);
 
   return file_open (inode);
 }

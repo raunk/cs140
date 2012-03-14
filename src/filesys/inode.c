@@ -283,7 +283,7 @@ inode_create (block_sector_t sector, off_t length)
           disk_inode->index[j] = 0; // Mark this block as unused
         }
 
-      printf("Cache write in I_CREATE\n");
+//      printf("Cache write in I_CREATE\n");
       cache_write(sector, disk_inode);
       
       /// Just created inode santiy check

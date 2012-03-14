@@ -101,9 +101,9 @@ lookup (const struct dir *dir, const char *name,
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
-  //  printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
-   //     e.inode_sector, e.name, e.in_use); 
-
+    /*printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
+        e.inode_sector, e.name, e.in_use); 
+*/
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)

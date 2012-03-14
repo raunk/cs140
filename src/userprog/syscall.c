@@ -426,6 +426,33 @@ static void syscall_chdir(struct intr_frame *f)
 
 static void syscall_mkdir(struct intr_frame *f)
 {
+  void* esp = f->esp;
+  char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
+  syscall_check_user_pointer(dir, f);
+  bool success = true;
+
+  struct inode* inode = filesys_lookup(dir);
+  // This directory should not exist
+  if(inode != NULL)
+  {
+    success = false;
+  }else{
+    char* last_slash = strrchr(dir, '/');
+    last_slash = '\0';
+    struct inode* parent_dir = filesys_lookup(dir);
+    // call dir_add here with the new name
+    // adding to the parent
+    // Create the new directory
+    if(parent_dir != NULL)
+    {
+      // create a new directoyr here
+      //allocate an inode?? 
+
+    }  
+  }
+   
+
+  f->eax = success;
 
 }
 

@@ -60,12 +60,11 @@ filesys_create (const char *name, off_t initial_size)
                   && dir_add (dir, name, inode_sector));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
-  printf("CLose dir\n");
   dir_close (dir);
 
-  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
+  /*printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
       name, inode_sector);
-
+*/
   return success;
 }
 

@@ -98,17 +98,11 @@ lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  printf("IN Lookup for name %s\n", name);
-
-  printf("Dir inumber = %d\n", inode_get_inumber(dir->inode)); 
-
-  printf("Inode Len %d\n", inode_length(dir->inode));
-
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
-    printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
-        e.inode_sector, e.name, e.in_use); 
+  //  printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
+   //     e.inode_sector, e.name, e.in_use); 
 
     if (e.in_use && !strcmp (name, e.name)) 
       {
@@ -159,7 +153,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  printf("IN DIR ADD!\n");
 
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
@@ -169,7 +162,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   if (lookup (dir, name, NULL, NULL))
     goto done;
 
-  printf("COMPLETE LOOKUP\n");
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -178,11 +170,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
      inode_read_at() will only return a short read at end of file.
      Otherwise, we'd need to verify that we didn't get a short
      read due to something intermittent such as low memory. */
-  printf("WE ARE HERE\n");
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
   { 
-    printf("Here!\n");
     if (!e.in_use)
       break;
   }
@@ -190,17 +180,19 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-    printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+   /* printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
   printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
       ofs, dir->inode, inode_get_inumber(dir->inode)); 
+    */
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
   { 
-    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+/*    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
+*/
     if (!e.in_use)
       break;
   }

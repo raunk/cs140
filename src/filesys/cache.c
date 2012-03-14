@@ -173,7 +173,7 @@ cache_read(block_sector_t sector, void* buffer)
 void 
 cache_write(block_sector_t sector, const void* buffer)
 {
-  printf("Write block to sec=%d\n", sector);
+//  printf("Write block to sec=%d\n", sector);
   cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE, 0);
 }
 
@@ -182,7 +182,7 @@ void
 cache_read_bytes(block_sector_t sector, void* buffer, int size,
                         int offset)
 {
-  printf("Read sec=%d\n", sector);
+//  printf("Read sec=%d\n", sector);
   struct cache_elem* c;
   if(sector == FREE_MAP_SECTOR)
     c = &free_map_cache; 
@@ -196,7 +196,7 @@ cache_read_bytes(block_sector_t sector, void* buffer, int size,
 void cache_write_bytes(block_sector_t sector, const void* buffer, 
       int size, int offset)
 {
-  printf("Write sec=%d\n", sector);
+//  printf("Write sec=%d\n", sector);
   struct cache_elem* c;
   if(sector == FREE_MAP_SECTOR)
     c = &free_map_cache; 
@@ -216,7 +216,7 @@ void cache_write_bytes(block_sector_t sector, const void* buffer,
 void
 check_root(char loc)
 {
-  printf("%c Root Dir?\n", loc);
+ /* printf("%c Root Dir?\n", loc);
    
   struct cache_elem* r = cache_lookup(1);
   if(r)
@@ -231,15 +231,16 @@ check_root(char loc)
         printf("%d ", id->index[i]);
       printf("\n");
     }
+ */
 }
 
 /* Get the cache element for this sector */
 struct cache_elem* 
 cache_get(block_sector_t sector)
 {
-  printf("Get sector=%d\n", sector);
+  //printf("Get sector=%d\n", sector);
 
-  check_root('@');
+  //check_root('@');
 
   struct cache_elem* c = cache_lookup(sector);
   // If it was already in the cache, move it to the front
@@ -251,20 +252,20 @@ cache_get(block_sector_t sector)
    {
     cache_reinsert(c);
     cache_hits++;
-    check_root('&');
+   // check_root('&');
     return c;
    }
 
    
   if(cache_size() == MAX_CACHE_SIZE)
    {
-      check_root('*');
+    //  check_root('*');
       cache_evict();  
-      check_root('#');
+     // check_root('#');
    } 
  
   c = cache_insert(sector);
-  check_root('!');
+//  check_root('!');
   cache_misses++;
   return c; 
 }

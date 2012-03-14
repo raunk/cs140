@@ -83,22 +83,15 @@ bool
 filesys_create (const char *name, off_t initial_size) 
 {
   block_sector_t inode_sector = 0;
-  printf("Create file with fullpath = %s\n", name);
-  //struct dir *dir = dir_open_root ();
-
-  //TODO: Write method dir_open_filename()
-  //
-  //struct dir* dir = dir_open(inode_open(filesys_lookup(name));
-
   // Open the parent directory
   struct dir* dir = dir_open_parent(name);
 
-  printf("Parent dir=%p\n", dir);
+  // Extract the last part of the pathname, which should 
+  // be the filename
   char file_name[NAME_MAX + 1]; 
   bool is_file = last_path_component(name, file_name); 
-  printf("Create a file with filename=%s\n", file_name);
 
-  bool success = (dir != NULL
+  bool success = (dir != NULL && is_file
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size)
                   && dir_add (dir, file_name, inode_sector));

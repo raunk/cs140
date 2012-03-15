@@ -415,7 +415,9 @@ static void syscall_chdir(struct intr_frame *f)
   syscall_check_user_pointer(dir, f);
   bool success = true;
   
+  // todo: synchronization??
   struct dir* cur_dir = thread_get_working_directory();
+  //printf("CUR DIR IS %p CHANGING TO %s\n", cur_dir, dir);
   
   // open new directory
   struct inode* inode = filesys_lookup(dir);
@@ -450,14 +452,17 @@ static void syscall_mkdir(struct intr_frame *f)
   if(inode != NULL)
   {
     f->eax = false;
+    inode_close(inode);
     return;
   }
+  
   //printf("OPENING PARENT OF: %s\n", dir);
   // The parent directory must already exist
   struct dir* parent_dir = dir_open_parent(dir);
   if(parent_dir == NULL)
   {
     f->eax = false;
+    inode_close(inode);
     return;
   }
   
@@ -478,7 +483,8 @@ static void syscall_mkdir(struct intr_frame *f)
   dir_add(parent_dir, name, result);
   
   dir_close(parent_dir);
-  //inode_close(inode);
+  //printf("OK GOING TO CLOSE CHILD INODE NOW!!\n");
+  inode_close(inode);
   
   //printf("JUST ADDED %s TO PARENT %d\n", name, inode_get_inumber(parent_inode));
   

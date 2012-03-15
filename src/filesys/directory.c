@@ -121,7 +121,15 @@ dir_reopen (struct dir *dir)
 void
 dir_close (struct dir *dir) 
 {
-  if (dir != NULL && dir != thread_get_working_directory())
+  block_sector_t cwd_inumber = inode_get_inumber(dir_get_inode(thread_get_working_directory()));
+  block_sector_t dir_inumber = inode_get_inumber(dir_get_inode(dir));
+  
+  if(cwd_inumber == dir_inumber) {
+    //printf("CAN'T CLOSE WORKING DIR INODE!!\n");
+    return;
+  }
+  
+  if (dir != NULL)
     {
       inode_close (dir->inode);
       free (dir);
@@ -156,7 +164,7 @@ lookup (const struct dir *dir, const char *name,
        ofs += sizeof e) 
   {
     //printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
-    //    e.inode_sector, e.name, e.in_use); 
+    //     e.inode_sector, e.name, e.in_use); 
         
     if (e.in_use && !strcmp (name, e.name)) 
       {
@@ -164,6 +172,7 @@ lookup (const struct dir *dir, const char *name,
           *ep = e;
         if (ofsp != NULL)
           *ofsp = ofs;
+        //printf("------------- END DIR ENTRIES FOR -------------------\n");
         return true;
       }
   }

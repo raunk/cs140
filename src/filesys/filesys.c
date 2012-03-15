@@ -166,8 +166,7 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   bool found = dir_lookup(cur, component, &inode);
   
   /* Close the directory if we opened it (working dir is already open) */
-  if(cur != thread_get_working_directory()) 
-    dir_close(cur);
+  dir_close(cur);
   
   //printf("Found component? %d\n", found);
 
@@ -204,9 +203,10 @@ filesys_lookup(const char* pathname)
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
+    //printf("Relative\n");
     start_dir = thread_get_working_directory();
   }else{
-  //  printf("Absolute\n");
+    //printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
   
@@ -257,34 +257,39 @@ filesys_remove (const char *name)
   //printf("-----------------------------------------------\n");
  
   if(inode_isdir(inode)) {
+    
+    // if is current working dir
+    if(dir_get_inode(thread_get_working_directory()) == inode) {
+      //printf("Failing inode is workind dir...\n");
+      return false;
+    }
+    
+    // if its already open
+    //printf("Going to remove %d\n", inode_get_inumber(inode));
+    inode_close(inode);
+    if(inode_isopen(inode)) {
+      //printf("Failing inode is open...\n");
+      return false;
+    }
      
-    // if is not empty
+    /* it's not already open so open it, we need to
+       look it up again to make sure the inode is open */
+    inode = filesys_lookup(name);
     struct dir *child = dir_open(inode);
     if(!dir_isempty(child)) {
+      //printf("Failing dir is not empty...\n");
       dir_close(child);
       return false;
     }
     dir_close(child);
-    
-    // if is current working dir
-    // TODO
-    // if(thread_get_working_directory() == inode_get_inumber(inode)) {
-    //   return false;
-    // }
-    
-    // we open this inode by looking it up so close it and see
-    // if there are other openers
-    inode_close(inode);
-    if(inode_isopen(inode)) {
-      printf("FAILING INODE IS OPEN!!\n");
-      return false;
-    }
       
   }
   char filename[NAME_MAX+1];
   last_path_component(name, filename);
   
   bool success = dir != NULL && dir_remove (dir, filename);
+  
+  // only close dir if we successfully removed it
   dir_close (dir); 
   //printf("-----------------------------------------------\n");
 

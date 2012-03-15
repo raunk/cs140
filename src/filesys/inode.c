@@ -430,7 +430,7 @@ inode_open (block_sector_t sector)
   struct list_elem *e;
   struct inode *inode;
 
-//  printf("INODE OPEN - sector %d\n", sector);
+  //printf("INODE OPEN - sector %d\n", sector);
 
   /* Check whether this inode is already open. */
   for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
@@ -510,8 +510,7 @@ inode_close (struct inode *inode)
   /* Ignore null pointer. */
   if (inode == NULL)
     return;
-
-
+  
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {

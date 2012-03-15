@@ -430,51 +430,48 @@ static void syscall_mkdir(struct intr_frame *f)
   void* esp = f->esp;
   char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
   syscall_check_user_pointer(dir, f);
-  bool success = true;
-
-//  printf("###### MKDIR SYSCALL\n");
-//  printf("Make dir fullpath=%s\n", dir);
-
-  struct inode* inode = filesys_lookup(dir);
-//  printf("Complete lookup for inode %p\n", inode);
   
+  // Make sure passed filename is well-formed
+  if(strlen(dir) == 0)
+  {
+    f->eax = false;
+    return;
+  }
 
   // This directory should not exist
+  struct inode* inode = filesys_lookup(dir);
   if(inode != NULL)
   {
-    success = false;
-  }else{
-    // The parent directory must already exist
-    struct dir* parent_dir = dir_open_parent(dir);
- //   printf("Got parent %p\n", parent_dir);
-    if(parent_dir != NULL)
-    {
-      // Allocate an inode
-      block_sector_t result;
-
-  
-      free_map_allocate(1, &result);
-      inode = inode_open(result);
- 
-      // Create a new directory
-      struct inode* parent_inode = dir_get_inode(parent_dir);
-      dir_create(result, inode_get_inumber(parent_inode));
-
-      // Add this directory to its parent 
-      char name[NAME_MAX + 1];
-      last_path_component(dir, name); 
-      
-      //printf("Name=%s\n", name);
-      dir_add(parent_dir, name, result);
-    }else{
-      //printf("Parent dir was null\n");
-      success = false;
-    }
+    f->eax = false;
+    return;
+  }
+    
+  // The parent directory must already exist
+  struct dir* parent_dir = dir_open_parent(dir);
+  if(parent_dir == NULL)
+  {
+    f->eax = false;
+    return;
   }
   
-//  printf("####### END MKDIR SYSCALL\n");
+  // Allocate an inode
+  block_sector_t result;
 
-  f->eax = success;
+  free_map_allocate(1, &result);
+  inode = inode_open(result);
+
+  // Create a new directory
+  struct inode* parent_inode = dir_get_inode(parent_dir);
+  dir_create(result, inode_get_inumber(parent_inode));
+
+  // Add this directory to its parent 
+  char name[NAME_MAX + 1];
+  last_path_component(dir, name); 
+
+  dir_add(parent_dir, name, result);
+  
+  f->eax = true;
+  return;
 }
 
 static void syscall_readdir(struct intr_frame *f)
@@ -694,6 +691,10 @@ syscall_write(struct intr_frame *f)
     return;
   }
   
+  // Make sure we are writing to something writeable
+  if(!file_iswriteable(fd_elem->f))
+    exit_current_process(-1);
+    
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }

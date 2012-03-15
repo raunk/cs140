@@ -322,6 +322,7 @@ inode_isopen (struct inode* inode)
        e = list_next (e)) 
     {
       cur_inode = list_entry (e, struct inode, elem);
+      //printf("open inode sector: %d\n", cur_inode->sector);
       if (cur_inode == inode) 
         {
           return true; 

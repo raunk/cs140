@@ -471,6 +471,9 @@ static void syscall_mkdir(struct intr_frame *f)
 
   dir_add(parent_dir, name, result);
   
+  dir_close(parent_dir);
+  //inode_close(inode);
+  
   //printf("JUST ADDED %s TO PARENT %d\n", name, inode_get_inumber(parent_inode));
   
   f->eax = true;

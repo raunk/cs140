@@ -249,14 +249,11 @@ filesys_remove (const char *name)
   if(inode == NULL) {
     return false;
   }
-    
+  
+  //printf("Removing inumber %d\n", inode_get_inumber(inode));
+  //printf("-----------------------------------------------\n");
  
   if(inode_isdir(inode)) {
-    
-    // if(inode_isopen(inode)) {
-    //       printf("Failing: inode is open!\n");
-    //       return false;
-    // }
      
     // if is not empty
     struct dir *child = dir_open(inode);
@@ -264,10 +261,18 @@ filesys_remove (const char *name)
       dir_close(child);
       return false;
     }
+    dir_close(child);
     
     // if is current working dir
     if(thread_get_working_directory_inumber() == inode_get_inumber(inode)) {
       return false;
+    }
+    
+    // we open this inode by looking it up so close it and see
+    // if there are other openers
+    inode_close(inode);
+    if(inode_isopen(inode)) {
+        return false;
     }
       
   }
@@ -276,6 +281,7 @@ filesys_remove (const char *name)
   
   bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
+  //printf("-----------------------------------------------\n");
 
   return success;
 }

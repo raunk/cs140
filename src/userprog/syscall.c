@@ -512,7 +512,12 @@ static void syscall_isdir(struct intr_frame *f)
 
 static void syscall_inumber(struct intr_frame *f)
 {
-
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+  struct inode* inode = file_get_inode(fd_elem->f);
+  f->eax = inode_get_inumber(inode);
 }
 
 /* Memory map system call. We take a file descriptor and 

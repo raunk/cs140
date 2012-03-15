@@ -2,6 +2,7 @@
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "lib/user/syscall.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
@@ -470,18 +471,43 @@ static void syscall_mkdir(struct intr_frame *f)
 
   dir_add(parent_dir, name, result);
   
+  //printf("JUST ADDED %s TO PARENT\n", name);
+  
   f->eax = true;
   return;
 }
 
 static void syscall_readdir(struct intr_frame *f)
 {
-
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  char* name = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
+  
+  syscall_check_user_pointer(name, f);
+  syscall_check_user_pointer(name + READDIR_MAX_LEN + 1, f);
+  
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+  struct inode* inode = file_get_inode(fd_elem->f);
+  struct dir* cur_dir = dir_open(inode);
+  
+  bool success;
+  while(true) {
+    success = dir_readdir(cur_dir, name);
+    if(!success || (strcmp(name, ".") != 0 && strcmp(name, "..") != 0))
+      break;
+  }
+  
+  f->eax = success;
 }
 
 static void syscall_isdir(struct intr_frame *f)
 {
-
+  void* esp = f->esp;
+  int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
+  
+  
+  struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+  f->eax = file_isdir (fd_elem->f);
 }
 
 static void syscall_inumber(struct intr_frame *f)
@@ -692,7 +718,7 @@ syscall_write(struct intr_frame *f)
   }
   
   // Make sure we are writing to something writeable
-  if(!file_iswriteable(fd_elem->f))
+  if(file_isdir(fd_elem->f))
     exit_current_process(-1);
     
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
@@ -709,7 +735,7 @@ syscall_open(struct intr_frame *f)
   void* file = get_nth_parameter(esp, 1, sizeof(char*), f);
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname, f);
-  
+  //printf("OPENING %s\n", fname);
   struct file *fi = safe_filesys_open (fname);
   if (!fi) {
     f->eax = -1;

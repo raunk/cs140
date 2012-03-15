@@ -27,6 +27,7 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, block_sector_t parent)
 {
+  //printf("CREATING DIRECTORY %d FOR PARENT %d\n", sector, parent);
   bool success = inode_create (sector, 0, true); 
   if(success)
   {
@@ -149,13 +150,13 @@ lookup (const struct dir *dir, const char *name,
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
-
+  //printf("------------- DIR ENTRIES FOR -------------------\n");
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
     /*printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
-*/
+        */
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)
@@ -165,6 +166,7 @@ lookup (const struct dir *dir, const char *name,
         return true;
       }
   }
+  //printf("------------- END DIR ENTRIES FOR -------------------\n");
   return false;
 }
 
@@ -232,7 +234,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-   /* printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    /*
+    printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
   printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
       ofs, dir->inode, inode_get_inumber(dir->inode)); 

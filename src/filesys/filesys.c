@@ -147,6 +147,10 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   //printf("Lookup in pathname %s\n", pathname);
 
   bool is_last_component = first_path_component(pathname, component);
+  
+  /* Base case */
+  if(strlen(component) == 0)
+    return dir_get_inode(cur);
 
   //printf("First component '%s'\n", component);
 
@@ -196,6 +200,8 @@ filesys_lookup(const char* pathname)
   //  printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
+  
+  
 
   return filesys_lookup_recursive(pathname, start_dir); 
 }

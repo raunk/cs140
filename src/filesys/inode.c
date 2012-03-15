@@ -289,6 +289,24 @@ byte_to_sector (const struct inode *inode, off_t pos)
     }
 }
 
+/* Free all of the blocks used by this inode */
+void
+free_inode_used_blocks(struct inode* inode)
+{
+  off_t len = inode_length(inode);
+  off_t cur = 0;
+  while(len > 0)
+  {
+    block_sector_t sec = byte_to_sector(inode, cur);
+    free_map_release (sec, 1);
+    cur += BLOCK_SECTOR_SIZE;
+    len -= BLOCK_SECTOR_SIZE; 
+  }
+
+  free_map_release(inode->sector, 1);
+}
+
+
 void
 print_inode_used_blocks(struct inode* inode)
 {
@@ -497,29 +515,13 @@ inode_close (struct inode *inode)
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
-
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
 
- 
       /* Deallocate blocks if removed. */
       if (inode->removed) 
         {
-            // struct cache_elem* c = cache_get(inode->sector);
-            // 
-            //          struct inode_disk* id = (struct inode_disk*)c->data;
-         
-  //        free_direct_blocks(id);
-   //       free_indirect_blocks(id);
-    //      free_doubly_indirect_blocks(id);
-          
-     //     free_map_release (inode->sector, 1);
-
-          //free_map_release (inode->data.start,
-          //                  bytes_to_sectors (inode->data.length)); 
-          //TODO: Here we should traverse the inode multilevel 
-          // index up to the file length, and free the sector
-          // if it is not 0 (0 is unused)
+            free_inode_used_blocks(inode);
         }
 
       free (inode); 

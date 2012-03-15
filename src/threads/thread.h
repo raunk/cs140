@@ -7,6 +7,7 @@
 #include "threads/synch.h"
 #include <hash.h>
 #include "devices/block.h"
+#include "filesys/directory.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -137,7 +138,7 @@ struct thread
     int load_status;    /* Load status for this thread */
     
     /* i-number of thread's working directory */
-    block_sector_t working_directory_inumber; 
+    struct dir* working_directory; 
 //    struct inode* working_directory; /* Thread's working directory */ 
 
     struct file* executing_file;
@@ -156,6 +157,9 @@ struct file_descriptor_elem
   int fd; /* File descriptor number */
   struct file *f; /* File struct pointer. New one is allocated each time a file
                      is opened, deallocated when the file is closed. */
+  struct dir *dir; /* For filesys: if this open file is a directory we need a
+                      handle to its dir pointer */
+
   struct list_elem elem;
 };
   
@@ -252,7 +256,7 @@ int thread_add_mmap_entry(void* vaddr, int length, struct inode* inode);
 struct mmap_elem* thread_lookup_mmap_entry(int map_id);
 
 /* Get working directory */
-block_sector_t thread_get_working_directory_inumber(void); 
+struct dir* thread_get_working_directory(void); 
 
 
 #endif /* threads/thread.h */

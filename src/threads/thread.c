@@ -137,11 +137,15 @@ mmap_less_fn(const struct hash_elem *a_, const struct hash_elem *b_,
 }
 
 
-/* Get the i-number of the current thread's working directory */
-block_sector_t 
-thread_get_working_directory_inumber()
+/* Get the current thread's working directory */
+struct dir*
+thread_get_working_directory()
 {
-  return thread_current()->working_directory_inumber;
+  struct thread* cur_thread = thread_current();
+  if(cur_thread->working_directory == NULL) {
+    cur_thread->working_directory = dir_open(inode_open(ROOT_DIR_SECTOR));
+  }
+  return cur_thread->working_directory;
 }
 
 
@@ -1003,10 +1007,13 @@ init_thread (struct thread *t, const char *name, int priority)
   if(is_thread(cur)) {
     list_push_back(&cur->child_list, &t->child_elem);
     t->parent = cur;
+    // TODO might need to call open separately?
+#ifdef FILESYS
+    if(cur->working_directory != NULL) {
+      t->working_directory = cur->working_directory;
+    }
+#endif
   }
-
-
-  t->working_directory_inumber = ROOT_DIR_SECTOR;
   
   t->waited_on_by = -1; 
   t->exit_status = 0;

@@ -414,15 +414,21 @@ static void syscall_chdir(struct intr_frame *f)
   char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
   syscall_check_user_pointer(dir, f);
   bool success = true;
-  //printf("changing to %s\n", dir);
+  
+  struct dir* cur_dir = thread_get_working_directory();
+  
+  // open new directory
   struct inode* inode = filesys_lookup(dir);
 
   if(inode == NULL)
   {
     success = false;
   }else{
-    thread_current()->working_directory_inumber = inode_get_inumber(inode);
+    thread_current()->working_directory = dir_open(inode);
   }
+  // close directory we were just in
+  dir_close(cur_dir);
+  
   f->eax = success;
 }
 
@@ -490,15 +496,24 @@ static void syscall_readdir(struct intr_frame *f)
   syscall_check_user_pointer(name + READDIR_MAX_LEN + 1, f);
   
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
-  struct inode* inode = file_get_inode(fd_elem->f);
-  struct dir* cur_dir = dir_open(inode);
+  struct dir* cur_dir = fd_elem->dir;
   
-  bool success;
+  bool success = false;
   while(true) {
     success = dir_readdir(cur_dir, name);
-    if(!success || (strcmp(name, ".") != 0 && strcmp(name, "..") != 0))
+    if(!success)
       break;
+    
+    if(strcmp(name, ".") != 0 && strcmp(name, "..") != 0) {
+      break;
+    } else {
+      // set success to false since we still didn't find a
+      // valid dir entry to read
+      success = false;
+    }
   }
+  
+  //printf("JUST READ: %s\n", name);
   
   f->eax = success;
 }
@@ -749,7 +764,17 @@ syscall_open(struct intr_frame *f)
     f->eax = -1;
     return;
   }
-  f->eax = thread_add_file_descriptor_elem(fi)->fd;
+  int fd = thread_add_file_descriptor_elem(fi)->fd;
+  
+  /* If a directory we need to open the dir */
+  if(file_isdir(fi)) {
+    struct dir* dir = dir_open(file_get_inode(fi));
+    struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
+    
+    fd_elem->dir = dir;
+  }
+  
+  f->eax = fd;
 }
 
 /* Read system call. Read the file descriptor, buffer, and length.
@@ -858,6 +883,10 @@ syscall_close(struct intr_frame *f)
   struct file_descriptor_elem* fd_elem = thread_get_file_descriptor_elem(fd);
   if (!fd_elem) {
     return;
+  }
+  
+  if(file_isdir(fd_elem->f)) {
+    dir_close(fd_elem->dir);
   }
   
   safe_file_close(fd_elem->f);

@@ -86,8 +86,7 @@ dir_open_parent(const char* name)
   // We are in the root directory
   if(last_slash == 0 || last_slash == cpy)
   {
- //   printf("IN ROOT!\n");
-    return dir_open(inode_open(thread_get_working_directory_inumber()));
+    return thread_get_working_directory();
   }
 
   // Set the last slash to null, so we can look
@@ -122,7 +121,7 @@ dir_reopen (struct dir *dir)
 void
 dir_close (struct dir *dir) 
 {
-  if (dir != NULL)
+  if (dir != NULL && dir != thread_get_working_directory())
     {
       inode_close (dir->inode);
       free (dir);
@@ -151,6 +150,8 @@ lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
   //printf("------------- DIR ENTRIES FOR -------------------\n");
+  //printf("DIR IS %p\n", dir);
+  //printf("INODE IS %d\n", inode_get_inumber(dir->inode));
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
@@ -323,7 +324,7 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-
+  //printf("CUR DIR OFFSET: %d\n", dir->pos);
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;

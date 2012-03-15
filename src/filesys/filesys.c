@@ -84,12 +84,12 @@ filesys_create (const char *name, off_t initial_size)
   block_sector_t inode_sector = 0;
   // Open the parent directory
   struct dir* dir = dir_open_parent(name);
-
+  
   // Extract the last part of the pathname, which should 
   // be the filename
   char file_name[NAME_MAX + 1]; 
   bool is_file = last_path_component(name, file_name); 
-
+  
   bool success = (dir != NULL && is_file
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, false)
@@ -98,8 +98,10 @@ filesys_create (const char *name, off_t initial_size)
     free_map_release (inode_sector, 1);
   dir_close (dir);
 
-//  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
-//      name, inode_sector);
+/*
+  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
+      name, inode_sector);
+*/
 //
 
   return success;
@@ -162,7 +164,10 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   struct inode* inode = NULL;
 
   bool found = dir_lookup(cur, component, &inode);
-  dir_close(cur);
+  
+  /* Close the directory if we opened it (working dir is already open) */
+  if(cur != thread_get_working_directory()) 
+    dir_close(cur);
   
   //printf("Found component? %d\n", found);
 
@@ -199,9 +204,7 @@ filesys_lookup(const char* pathname)
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
-    //printf("Relative\n");
-    start_dir = dir_open(inode_open(thread_get_working_directory_inumber()));
-    //printf("%p\n", start_dir); 
+    start_dir = thread_get_working_directory();
   }else{
   //  printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
@@ -264,15 +267,17 @@ filesys_remove (const char *name)
     dir_close(child);
     
     // if is current working dir
-    if(thread_get_working_directory_inumber() == inode_get_inumber(inode)) {
-      return false;
-    }
+    // TODO
+    // if(thread_get_working_directory() == inode_get_inumber(inode)) {
+    //   return false;
+    // }
     
     // we open this inode by looking it up so close it and see
     // if there are other openers
     inode_close(inode);
     if(inode_isopen(inode)) {
-        return false;
+      printf("FAILING INODE IS OPEN!!\n");
+      return false;
     }
       
   }

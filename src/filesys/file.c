@@ -2,6 +2,7 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/cache.h"
 
 /* An open file. */
 struct file 
@@ -23,6 +24,11 @@ file_open (struct inode *inode)
       file->inode = inode;
       file->pos = 0;
       file->deny_write = false;
+      
+      if(inode_isdir(inode)) {
+        file_deny_write(file);
+      }
+      
       return file;
     }
   else
@@ -138,6 +144,13 @@ file_allow_write (struct file *file)
       file->deny_write = false;
       inode_allow_write (file->inode);
     }
+}
+
+/* Checks if the file is writeable */
+bool
+file_iswriteable(struct file *file)
+{
+  return !file->deny_write;
 }
 
 /* Returns the size of FILE in bytes. */

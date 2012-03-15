@@ -27,7 +27,7 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, block_sector_t parent)
 {
-  bool success = inode_create (sector, 0); 
+  bool success = inode_create (sector, 0, true); 
   if(success)
   {
     struct dir* d = dir_open(inode_open(sector)); 

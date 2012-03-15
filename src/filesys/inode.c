@@ -251,7 +251,7 @@ inode_init (void)
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool is_dir)
 {
 //  printf("\n\nCreate inode %d with size=%d\n\n", sector, length);
   struct inode_disk *disk_inode = NULL;
@@ -268,6 +268,7 @@ inode_create (block_sector_t sector, off_t length)
     {
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
+      disk_inode->is_dir = is_dir;
       disk_inode->magic = INODE_MAGIC;
       disk_inode->start = sector;
 
@@ -300,7 +301,16 @@ inode_create (block_sector_t sector, off_t length)
   return success;
 }
 
-
+/* Determine if the passed in inode is a directory */
+bool
+inode_isdir(struct inode* inode)
+{
+  struct cache_elem* c = (struct cache_elem*)cache_get(inode->sector);
+  struct inode_disk* info = (struct inode_disk*)c->data;
+  if(info->is_dir)
+    return true;
+  return false;
+}
 
 
 /* Reads an inode from SECTOR
@@ -337,28 +347,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  //block_read (fs_device, inode->sector, &inode->data);
-//  cache_read(inode->sector, &inode->data);
-  /// Just created inode santiy check
-//    print_inode_used_blocks(inode);
-//  struct cache_elem* c = cache_get(inode->sector);
-//  struct inode_disk* id = (struct inode_disk*)c->data;
-//  printf("INODE OPEN SANITY CHECK==========\n");
-//  printf("Inode pointer=%p\n", inode);
-//  printf("Cache sector, should show %d, shows %d\n", inode->sector, c->sector);
-//  if(sector > 1)
-//  {
-//    printf("Disk sector, should show %d, shows %d\n", inode->sector, id->start);
-//    printf("Length %d\n", id->length);
-//  }
-//  else if(sector == 0)
-//  {
-//    printf("Special, free map\n");
-//  }else if(sector == 1)
-//  {
-//    printf("Special, root dir\n");
-//  }
-//
+
   return inode;
 }
 

@@ -6,6 +6,14 @@
 #include <stdio.h>
 #include "threads/synch.h"
 
+struct cache_elem{
+  block_sector_t sector; 
+  bool is_dirty;
+  struct list_elem list_elem; /* List element for cache*/
+  struct hash_elem hash_elem; /* Hash elemetn for cache*/
+  char data[512]; /* Cache data */ 
+};
+
 static struct list cache_list;
 static struct hash cache_hash;
 
@@ -14,6 +22,7 @@ static int cache_size(void);
 static struct cache_elem* cache_lookup(block_sector_t sector);
 static struct cache_elem* cache_insert(block_sector_t sector);
 static void cache_reinsert(struct cache_elem* elem);
+static struct cache_elem* cache_get(block_sector_t sector);
 static unsigned cache_hash_fn (const struct hash_elem *p_, 
                                   void *aux UNUSED);
 static bool cache_less_fn (const struct hash_elem *a_, 
@@ -24,6 +33,7 @@ static int cache_hits;
 static int cache_misses;
 
 struct cache_elem free_map_cache;
+
 
 /* Hash function for cache hash */
 static unsigned 
@@ -134,27 +144,8 @@ cache_evict()
   struct cache_elem* c = 
       list_entry(to_evict, struct cache_elem, list_elem); 
 
-
-  //printf("IN EVICT for %d\n", c->sector);
   if(c->is_dirty)
     {
-   //   printf("Writing %d\n", c->sector);
-
-    /*  if(c->sector == 1)
-        {
-          printf("EVICT WRITING ROOT DIR\n");
-          struct inode_disk* id = (struct inode_disk*)c->data;
-         
-          printf("Start = %d\n", id->start);
-          printf("Len = %d\n", id->length);
- 
-          int i;
-          for(i = 0; i < 12; i++)
-            printf("%d ", id->index[i]);
-          printf("\n");
-          
-        }
-*/
       block_write(fs_device, c->sector, c->data);
     } 
 
@@ -173,7 +164,6 @@ cache_read(block_sector_t sector, void* buffer)
 void 
 cache_write(block_sector_t sector, const void* buffer)
 {
-//  printf("Write block to sec=%d\n", sector);
   cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE, 0);
 }
 
@@ -182,21 +172,19 @@ void
 cache_read_bytes(block_sector_t sector, void* buffer, int size,
                         int offset)
 {
-//  printf("Read sec=%d\n", sector);
   struct cache_elem* c;
   if(sector == FREE_MAP_SECTOR)
     c = &free_map_cache; 
   else
     c = cache_get(sector);
 
-  memcpy(buffer + offset, c->data, size);
+  memcpy(buffer, c->data + offset, size);
 }
 
 /* Write SIZE bytes from BUFFER into SECTOR */
 void cache_write_bytes(block_sector_t sector, const void* buffer, 
       int size, int offset)
 {
-//  printf("Write sec=%d\n", sector);
   struct cache_elem* c;
   if(sector == FREE_MAP_SECTOR)
     c = &free_map_cache; 
@@ -213,35 +201,17 @@ void cache_write_bytes(block_sector_t sector, const void* buffer,
   memcpy(c->data + offset, buffer, size);
 }
 
-void
-check_root(char loc)
+void cache_set_to_zero(block_sector_t sector)
 {
- /* printf("%c Root Dir?\n", loc);
-   
-  struct cache_elem* r = cache_lookup(1);
-  if(r)
-    {
-      struct inode_disk* id = (struct inode_disk*)r->data;
-     
-      printf("%c Start = %d\n", loc, id->start);
-      printf("%c Len = %d\n", loc, id->length);
-
-      int i;
-      for(i = 0; i < 12; i++)
-        printf("%d ", id->index[i]);
-      printf("\n");
-    }
- */
+  struct cache_elem *c = cache_get(sector);
+  c->is_dirty = true;
+  memset(c->data, 0, BLOCK_SECTOR_SIZE);
 }
 
 /* Get the cache element for this sector */
-struct cache_elem* 
+static struct cache_elem* 
 cache_get(block_sector_t sector)
 {
-  //printf("Get sector=%d\n", sector);
-
-  //check_root('@');
-
   struct cache_elem* c = cache_lookup(sector);
   // If it was already in the cache, move it to the front
 
@@ -252,20 +222,16 @@ cache_get(block_sector_t sector)
    {
     cache_reinsert(c);
     cache_hits++;
-   // check_root('&');
     return c;
    }
 
    
   if(cache_size() == MAX_CACHE_SIZE)
    {
-    //  check_root('*');
       cache_evict();  
-     // check_root('#');
    } 
  
   c = cache_insert(sector);
-//  check_root('!');
   cache_misses++;
   return c; 
 }

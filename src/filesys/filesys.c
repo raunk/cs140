@@ -245,32 +245,28 @@ filesys_remove (const char *name)
 {
   struct dir *dir = dir_open_parent (name);
   struct inode* inode = filesys_lookup(name);
-  printf("CALLED REMOVE for %s\n", name);
 
   if(inode == NULL) {
-    printf("INODE NOT FOUND!\n");
     return false;
   }
     
  
   if(inode_isdir(inode)) {
     
-    if(inode_isopen(inode)) {
-          printf("Failing: inode is open!\n");
-          return false;
-    }
+    // if(inode_isopen(inode)) {
+    //       printf("Failing: inode is open!\n");
+    //       return false;
+    // }
      
     // if is not empty
     struct dir *child = dir_open(inode);
     if(!dir_isempty(child)) {
-      printf("Failing: dir is not empty!\n");
       dir_close(child);
       return false;
     }
     
     // if is current working dir
     if(thread_get_working_directory_inumber() == inode_get_inumber(inode)) {
-      printf("Failing: is current working dir\n");
       return false;
     }
       

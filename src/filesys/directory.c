@@ -293,6 +293,29 @@ dir_remove (struct dir *dir, const char *name)
   return success;
 }
 
+/* Check if directory is empty.  An empty dir only has the
+   "." and ".." entries in it so all empty directories have just
+   2 entries */
+bool
+dir_isempty (struct dir *dir)
+{
+  struct dir_entry e;
+  int cur_pos = 0;
+  int num_entries = 0;
+  while (inode_read_at (dir->inode, &e, sizeof e, cur_pos) == sizeof e) 
+  {
+    cur_pos += sizeof e;
+    
+    if (e.in_use)
+      {
+        num_entries++;
+      }
+  }
+  
+  return num_entries == 2;
+}
+
+
 /* Reads the next directory entry in DIR and stores the name in
    NAME.  Returns true if successful, false if the directory
    contains no more entries. */

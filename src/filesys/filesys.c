@@ -149,8 +149,11 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   bool is_last_component = first_path_component(pathname, component);
   
   /* Base case */
-  if(strlen(component) == 0)
-    return dir_get_inode(cur);
+  if(strlen(component) == 0) {
+    struct inode* inode = dir_get_inode(cur);
+    dir_close(cur);
+    return inode;
+  }
 
   //printf("First component '%s'\n", component);
 
@@ -237,7 +240,29 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = dir_open_root ();
+  struct dir *dir = dir_open_parent (name);
+  struct inode* inode = filesys_lookup(name);
+  
+  if(inode == NULL)
+    return false;
+  
+  if(inode_isdir(inode)) {
+    
+    if(inode_isopen(inode))
+      return false;
+    
+    // if is not empty
+    struct dir *child = dir_open(inode);
+    if(!dir_isempty(child)) {
+      dir_close(child);
+      return false;
+    }
+    
+    // if is current working dir
+    if(thread_get_working_directory_inumber() == inode_get_inumber(inode))
+      return false;
+  }
+  
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
 

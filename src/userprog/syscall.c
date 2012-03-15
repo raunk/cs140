@@ -430,11 +430,16 @@ static void syscall_mkdir(struct intr_frame *f)
   void* esp = f->esp;
   char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
   syscall_check_user_pointer(dir, f);
-  bool success = true;
-
-  struct inode* inode = filesys_lookup(dir);
+  
+  // Make sure passed filename is well-formed
+  if(strlen(dir) == 0)
+  {
+    f->eax = false;
+    return;
+  }
 
   // This directory should not exist
+  struct inode* inode = filesys_lookup(dir);
   if(inode != NULL)
   {
     f->eax = false;
@@ -451,7 +456,6 @@ static void syscall_mkdir(struct intr_frame *f)
   
   // Allocate an inode
   block_sector_t result;
-
 
   free_map_allocate(1, &result);
   inode = inode_open(result);

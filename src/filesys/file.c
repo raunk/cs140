@@ -24,11 +24,6 @@ file_open (struct inode *inode)
       file->inode = inode;
       file->pos = 0;
       file->deny_write = false;
-      
-      if(inode_isdir(inode)) {
-        file_deny_write(file);
-      }
-      
       return file;
     }
   else
@@ -64,6 +59,12 @@ struct inode *
 file_get_inode (struct file *file) 
 {
   return file->inode;
+}
+
+bool
+file_isdir (struct file *file)
+{
+  return inode_isdir(file->inode);
 }
 
 /* Reads SIZE bytes from FILE into BUFFER,

@@ -383,6 +383,24 @@ inode_isdir(struct inode* inode)
   return read_inode_disk_is_dir(inode->sector);
 }
 
+bool
+inode_isopen (struct inode* inode)
+{
+  struct list_elem *e;
+  struct inode *cur_inode;
+  /* Check whether this inode is already open. */
+  for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
+       e = list_next (e)) 
+    {
+      cur_inode = list_entry (e, struct inode, elem);
+      if (cur_inode == inode) 
+        {
+          return true; 
+        }
+    }
+  return false;
+}
+
 
 /* Reads an inode from SECTOR
    and returns a `struct inode' that contains it.

@@ -27,6 +27,7 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, block_sector_t parent)
 {
+  //printf("CREATING DIRECTORY %d FOR PARENT %d\n", sector, parent);
   bool success = inode_create (sector, 0, true); 
   if(success)
   {
@@ -86,7 +87,7 @@ dir_open_parent(const char* name)
   if(last_slash == 0 || last_slash == cpy)
   {
  //   printf("IN ROOT!\n");
-    return dir_open_root();
+    return dir_open(inode_open(thread_get_working_directory_inumber()));
   }
 
   // Set the last slash to null, so we can look
@@ -149,13 +150,13 @@ lookup (const struct dir *dir, const char *name,
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
-
+  //printf("------------- DIR ENTRIES FOR -------------------\n");
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
-    /*printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
-        e.inode_sector, e.name, e.in_use); 
-*/
+    //printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    //    e.inode_sector, e.name, e.in_use); 
+        
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)
@@ -165,6 +166,7 @@ lookup (const struct dir *dir, const char *name,
         return true;
       }
   }
+  //printf("------------- END DIR ENTRIES FOR -------------------\n");
   return false;
 }
 
@@ -232,7 +234,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-   /* printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    /*
+    printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
   printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
       ofs, dir->inode, inode_get_inumber(dir->inode)); 
@@ -289,6 +292,29 @@ dir_remove (struct dir *dir, const char *name)
   inode_close (inode);
   return success;
 }
+
+/* Check if directory is empty.  An empty dir only has the
+   "." and ".." entries in it so all empty directories have just
+   2 entries */
+bool
+dir_isempty (struct dir *dir)
+{
+  struct dir_entry e;
+  int cur_pos = 0;
+  int num_entries = 0;
+  while (inode_read_at (dir->inode, &e, sizeof e, cur_pos) == sizeof e) 
+  {
+    cur_pos += sizeof e;
+    
+    if (e.in_use)
+      {
+        num_entries++;
+      }
+  }
+  
+  return num_entries == 2;
+}
+
 
 /* Reads the next directory entry in DIR and stores the name in
    NAME.  Returns true if successful, false if the directory

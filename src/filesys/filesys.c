@@ -137,7 +137,9 @@ first_path_component(const char* pathname, char* dest)
 struct inode*
 filesys_lookup_recursive(const char* pathname, struct dir* cur)
 {
-
+  int pathlen = strlen(pathname);
+  if(pathlen == 0)
+    return NULL;
 
   char component[NAME_MAX + 1];
 
@@ -147,6 +149,13 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   //printf("Lookup in pathname %s\n", pathname);
 
   bool is_last_component = first_path_component(pathname, component);
+  
+  /* Base case */
+  if(strlen(component) == 0) {
+    struct inode* inode = dir_get_inode(cur);
+    dir_close(cur);
+    return inode;
+  }
 
   //printf("First component '%s'\n", component);
 
@@ -190,12 +199,15 @@ filesys_lookup(const char* pathname)
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
- //   printf("Relative\n");
-    start_dir = dir_open(inode_open(thread_get_working_directory_inumber())); 
+    //printf("Relative\n");
+    start_dir = dir_open(inode_open(thread_get_working_directory_inumber()));
+    //printf("%p\n", start_dir); 
   }else{
   //  printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
+  
+  
 
   return filesys_lookup_recursive(pathname, start_dir); 
 }
@@ -231,8 +243,38 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
+  struct dir *dir = dir_open_parent (name);
+  struct inode* inode = filesys_lookup(name);
+
+  if(inode == NULL) {
+    return false;
+  }
+    
+ 
+  if(inode_isdir(inode)) {
+    
+    // if(inode_isopen(inode)) {
+    //       printf("Failing: inode is open!\n");
+    //       return false;
+    // }
+     
+    // if is not empty
+    struct dir *child = dir_open(inode);
+    if(!dir_isempty(child)) {
+      dir_close(child);
+      return false;
+    }
+    
+    // if is current working dir
+    if(thread_get_working_directory_inumber() == inode_get_inumber(inode)) {
+      return false;
+    }
+      
+  }
+  char filename[NAME_MAX+1];
+  last_path_component(name, filename);
+  
+  bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
 
   return success;

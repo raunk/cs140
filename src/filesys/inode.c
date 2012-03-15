@@ -17,6 +17,7 @@ static block_sector_t read_inode_disk_pointer(block_sector_t sector,
     int ptr_index);
 static void write_inode_disk_pointer(block_sector_t sector, int ptr_index,
     block_sector_t ptr_val);
+static bool read_inode_disk_is_dir(block_sector_t sector);
 static off_t read_inode_disk_length(block_sector_t sector);
 static void write_inode_disk_length(block_sector_t sector, off_t length);
 
@@ -127,10 +128,13 @@ write_indirect_block_pointer(block_sector_t sector, int ptr_index,
       ptr_index * sizeof(block_sector_t));
 }
 
-#define INODE_DISK_PTRS_OFFSET \
-(sizeof(block_sector_t) + sizeof(off_t) + sizeof(unsigned))
-
 #define INODE_DISK_LENGTH_OFFSET (sizeof(block_sector_t))
+
+#define INODE_DISK_PTRS_OFFSET \
+(INODE_DISK_LENGTH_OFFSET + sizeof(off_t) + sizeof(unsigned))
+
+#define INODE_DISK_ISDIR_OFFSET \
+(INODE_DISK_PTRS_OFFSET + INODE_INDEX_COUNT*sizeof(block_sector_t))
 
 static block_sector_t
 read_inode_disk_pointer(block_sector_t sector, int ptr_index)
@@ -147,6 +151,14 @@ write_inode_disk_pointer(block_sector_t sector, int ptr_index,
 {
   cache_write_bytes(sector, &ptr_val, sizeof(block_sector_t),
       INODE_DISK_PTRS_OFFSET + ptr_index * sizeof(block_sector_t));
+}
+
+static bool
+read_inode_disk_is_dir(block_sector_t sector)
+{
+  bool is_dir;
+  cache_read_bytes(sector, &is_dir, sizeof(bool), INODE_DISK_ISDIR_OFFSET);
+  return is_dir;
 }
 
 static off_t
@@ -368,11 +380,7 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
 bool
 inode_isdir(struct inode* inode)
 {
-  struct cache_elem* c = (struct cache_elem*)cache_get(inode->sector);
-  struct inode_disk* info = (struct inode_disk*)c->data;
-  if(info->is_dir)
-    return true;
-  return false;
+  return read_inode_disk_is_dir(inode->sector);
 }
 
 

@@ -137,7 +137,9 @@ first_path_component(const char* pathname, char* dest)
 struct inode*
 filesys_lookup_recursive(const char* pathname, struct dir* cur)
 {
-
+  int pathlen = strlen(pathname);
+  if(pathlen == 0)
+    return NULL;
 
   char component[NAME_MAX + 1];
 
@@ -197,8 +199,9 @@ filesys_lookup(const char* pathname)
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
- //   printf("Relative\n");
-    start_dir = dir_open(inode_open(thread_get_working_directory_inumber())); 
+    //printf("Relative\n");
+    start_dir = dir_open(inode_open(thread_get_working_directory_inumber()));
+    //printf("%p\n", start_dir); 
   }else{
   //  printf("Absolute\n");
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 

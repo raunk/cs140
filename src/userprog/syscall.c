@@ -414,7 +414,7 @@ static void syscall_chdir(struct intr_frame *f)
   char* dir = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
   syscall_check_user_pointer(dir, f);
   bool success = true;
-
+  //printf("changing to %s\n", dir);
   struct inode* inode = filesys_lookup(dir);
 
   if(inode == NULL)
@@ -446,7 +446,7 @@ static void syscall_mkdir(struct intr_frame *f)
     f->eax = false;
     return;
   }
-    
+  //printf("OPENING PARENT OF: %s\n", dir);
   // The parent directory must already exist
   struct dir* parent_dir = dir_open_parent(dir);
   if(parent_dir == NULL)
@@ -471,7 +471,7 @@ static void syscall_mkdir(struct intr_frame *f)
 
   dir_add(parent_dir, name, result);
   
-  //printf("JUST ADDED %s TO PARENT\n", name);
+  //printf("JUST ADDED %s TO PARENT %d\n", name, inode_get_inumber(parent_inode));
   
   f->eax = true;
   return;

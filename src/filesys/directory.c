@@ -87,7 +87,7 @@ dir_open_parent(const char* name)
   if(last_slash == 0 || last_slash == cpy)
   {
  //   printf("IN ROOT!\n");
-    return dir_open_root();
+    return dir_open(inode_open(thread_get_working_directory_inumber()));
   }
 
   // Set the last slash to null, so we can look
@@ -154,9 +154,9 @@ lookup (const struct dir *dir, const char *name,
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e) 
   {
-    /*printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
-        e.inode_sector, e.name, e.in_use); 
-        */
+    //printf("Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    //    e.inode_sector, e.name, e.in_use); 
+        
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)

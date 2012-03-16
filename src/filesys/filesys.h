@@ -6,6 +6,7 @@
 
 /* Sectors of system file inodes. */
 #define FREE_MAP_SECTOR 0       /* Free map file inode sector. */
+#define FREE_MAP_DATA_SECTOR 2  /* Free map sector for bitmap */
 #define ROOT_DIR_SECTOR 1       /* Root directory file inode sector. */
 
 /* Block device that contains the file system. */

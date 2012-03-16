@@ -21,6 +21,26 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+
+void
+print_dir(struct dir* dir)
+{
+  struct dir_entry e;
+  size_t ofs;
+  printf("directory.c:print_dir--------- DIR ENTRIES FOR -------------------\n");
+  printf("\t\tDIR IS %p\n", dir);
+  printf("\t\tINODE IS %d\n", inode_get_inumber(dir->inode));
+  for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+       ofs += sizeof e) 
+  {
+    printf("\t\tDir Entry: sector=%d, name=%s, inused=%d\n", 
+         e.inode_sector, e.name, e.in_use); 
+        
+  }
+  printf("\t\t------------- END DIR ENTRIES FOR -------------------\n");
+  return false;
+}
+
 /* Creates a directory with parent directory PARENT with 
    space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -154,6 +174,8 @@ lookup (const struct dir *dir, const char *name,
 {
   struct dir_entry e;
   size_t ofs;
+
+  print_dir(dir);
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
@@ -188,6 +210,10 @@ bool
 dir_lookup (const struct dir *dir, const char *name,
             struct inode **inode) 
 {
+  printf("directory.c, dir_lookup: dir inum=%d, find filename=%s\n",
+    inode_get_inumber(dir->inode), name);
+
+
   struct dir_entry e;
 
   ASSERT (dir != NULL);

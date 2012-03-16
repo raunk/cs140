@@ -178,6 +178,7 @@ cache_read_bytes(block_sector_t sector, void* buffer, int size,
   else
     c = cache_get(sector);
 
+
   memcpy(buffer, c->data + offset, size);
 }
 

@@ -156,9 +156,14 @@ write_inode_disk_pointer(block_sector_t sector, int ptr_index,
 static bool
 read_inode_disk_is_dir(block_sector_t sector)
 {
+  /* The free map sector is a special case */
+  if(sector == FREE_MAP_SECTOR)
+     return false;
+
   bool is_dir;
   cache_read_bytes(sector, &is_dir, sizeof(bool), INODE_DISK_ISDIR_OFFSET);
-  return is_dir;
+  return is_dir & 0x1;
+//  return is_dir;
 }
 
 static off_t

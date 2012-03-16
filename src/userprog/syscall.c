@@ -749,7 +749,7 @@ syscall_write(struct intr_frame *f)
   // Make sure we are writing to something writeable
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
-    
+  
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }

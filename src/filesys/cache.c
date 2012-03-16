@@ -214,7 +214,7 @@ cache_get(block_sector_t sector)
 {
   struct cache_elem* c = cache_lookup(sector);
   // If it was already in the cache, move it to the front
-
+  // FREE_MAP_SECTOR is 0??
   if(sector == FREE_MAP_SECTOR)
     return c; 
 

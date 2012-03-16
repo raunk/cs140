@@ -52,129 +52,9 @@ static void syscall_inumber(struct intr_frame *f);
 static void unmap_file_helper(struct mmap_elem* map_elem);
 void unmap_file(struct hash_elem* elem, void* aux UNUSED);
 void syscall_init (void);
-off_t safe_file_read (struct file *file, void *buffer, off_t size);
-off_t safe_file_read_at (struct file *file, void *buffer, off_t size, 
-      off_t file_ofs);
-off_t safe_file_length (struct file *file);
-bool safe_filesys_create(const char* name, off_t initial_size);
-void safe_file_seek (struct file *file, off_t new_pos);
-off_t safe_file_tell (struct file *file);
-void safe_file_close (struct file *file);
-struct file *safe_filesys_open (const char *name);
-bool safe_filesys_remove (const char *name);
 
 #define MAX_PUTBUF_SIZE 256
 
-/* Lock used for accessing file system code. It is not safe for multiple
-   thread to access the code in the /filesys directory. */
-static struct lock filesys_lock;
-
-/* The following safe_* functions simply acquire the filesys lock before
-   and release the lock after invoking their analogous functions from the
-   filesys/ directory. */
-off_t
-safe_file_read (struct file *file, void *buffer, off_t size) 
-{
-  off_t bytes_read;
-  lock_acquire_if_not_held(&filesys_lock);
-  bytes_read = file_read(file, buffer, size);
-  lock_release_if_held(&filesys_lock);
-  return bytes_read;
-}
-
-off_t
-safe_file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) 
-{
-  off_t bytes_read;
-  lock_acquire_if_not_held(&filesys_lock);
-  bytes_read = file_read_at(file, buffer, size, file_ofs);
-  lock_release_if_held(&filesys_lock);
-  return bytes_read;
-}
-
-off_t
-safe_file_write_at (struct file *file, const void *buffer, off_t size, 
-                      off_t file_ofs)
-{
-  off_t bytes_written;
-  lock_acquire_if_not_held(&filesys_lock);
-  bytes_written = file_write_at(file, buffer, size, file_ofs);
-  lock_release_if_held(&filesys_lock);
-  return bytes_written;
-}
-
-off_t
-safe_file_write (struct file *file, const void *buffer, off_t size)
-{
-  off_t bytes_written;
-  lock_acquire_if_not_held(&filesys_lock);
-  bytes_written = file_write (file, buffer, size);
-  lock_release_if_held(&filesys_lock);
-  return bytes_written;
-}
-
-off_t
-safe_file_length (struct file *file)
-{
-  off_t num_bytes;
-  lock_acquire_if_not_held(&filesys_lock);
-  num_bytes = file_length(file);
-  lock_release_if_held(&filesys_lock);
-  return num_bytes;
-}
-
-bool 
-safe_filesys_create(const char* name, off_t initial_size)
-{
-  lock_acquire_if_not_held(&filesys_lock);
-  bool result = filesys_create(name, initial_size); 
-  lock_release_if_held(&filesys_lock);
-  return result; 
-}
-
-void
-safe_file_seek (struct file *file, off_t new_pos)
-{
-  lock_acquire_if_not_held(&filesys_lock);
-  file_seek(file, new_pos);
-  lock_release_if_held(&filesys_lock);
-}
-
-off_t
-safe_file_tell (struct file *file)
-{
-  lock_acquire_if_not_held(&filesys_lock);
-  off_t pos = file_tell(file);
-  lock_release_if_held(&filesys_lock);
-  return pos;
-}
-
-void
-safe_file_close (struct file *file)
-{
-  lock_acquire_if_not_held(&filesys_lock);
-  file_close(file);
-  lock_release_if_held(&filesys_lock);
-}
-
-struct file *
-safe_filesys_open (const char *name)
-{
-  struct file *f;
-  lock_acquire_if_not_held(&filesys_lock);
-  f = filesys_open(name);
-  lock_release_if_held(&filesys_lock);
-  return f;
-}
-
-bool
-safe_filesys_remove (const char *name)
-{
-  lock_acquire_if_not_held(&filesys_lock);
-  bool result = filesys_remove(name);
-  lock_release_if_held(&filesys_lock);
-  return result;
-}
 
 /* Checks if a pointer passed by a user program is valid.
    Exits the current process if the pointer found to be invalid. */
@@ -211,7 +91,6 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init(&filesys_lock);
 }
 
 /* Returns the nth parameter to the system call given the stack pointer. */
@@ -248,7 +127,7 @@ static void syscall_create(struct intr_frame * f)
     return;
   }
 
-  bool result = safe_filesys_create(fname, initial_size); 
+  bool result = filesys_create(fname, initial_size); 
   f->eax = result; 
 }
 
@@ -329,7 +208,7 @@ unmap_file_helper(struct mmap_elem* map_elem)
     int page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
     if(pagedir_is_dirty(thread_current()->pagedir, cur_addr))
     {
-      safe_file_write_at(f, cur_addr, page_write_bytes, 
+      file_write_at(f, cur_addr, page_write_bytes, 
                          sp_entry->off); 
     }
     if(sp_entry->status == PAGE_IN_MEM)
@@ -387,7 +266,7 @@ exit_current_process(int status)
   
   /* Allow writes for the executing file and close it */
   file_allow_write(cur->executing_file);
-  safe_file_close(cur->executing_file);
+  file_close(cur->executing_file);
 
   sema_up(&cur->is_dying);
 
@@ -752,7 +631,7 @@ syscall_write(struct intr_frame *f)
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
 
-  off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
+  off_t bytes_written = file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }
 
@@ -767,7 +646,7 @@ syscall_open(struct intr_frame *f)
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname, f);
   //printf("OPENING %s\n", fname);
-  struct file *fi = safe_filesys_open (fname);
+  struct file *fi = filesys_open (fname);
   if (!fi) {
     f->eax = -1;
     return;
@@ -814,7 +693,7 @@ syscall_read(struct intr_frame *f)
     return;
   }
   
-  off_t bytes_read = safe_file_read(fd_elem->f, buffer, length);
+  off_t bytes_read = file_read(fd_elem->f, buffer, length);
   f->eax = bytes_read;
 }
 
@@ -832,7 +711,7 @@ syscall_filesize(struct intr_frame *f)
     return;
   }
   
-  f->eax = safe_file_length(fd_elem->f);
+  f->eax = file_length(fd_elem->f);
 }
 
 
@@ -844,7 +723,7 @@ syscall_remove(struct intr_frame *f)
   char* fname = *(char**)get_nth_parameter(esp, 1, sizeof(char*), f);
   syscall_check_user_pointer(fname, f);
   
-  bool result = safe_filesys_remove(fname);
+  bool result = filesys_remove(fname);
   f->eax = result;
 }
 
@@ -861,7 +740,7 @@ syscall_seek(struct intr_frame *f)
     return;
   }
   
-  safe_file_seek(fd_elem->f, position);
+  file_seek(fd_elem->f, position);
 }
 
 /* Report the current position for this file descriptor */
@@ -877,7 +756,7 @@ syscall_tell(struct intr_frame *f)
     return;
   }
   
-  f->eax = safe_file_tell(fd_elem->f);
+  f->eax = file_tell(fd_elem->f);
 }
 
 /* Close the file given by the current file descriptor and remove it from 
@@ -897,7 +776,7 @@ syscall_close(struct intr_frame *f)
     dir_close(fd_elem->dir);
   }
   
-  safe_file_close(fd_elem->f);
+  file_close(fd_elem->f);
   list_remove(&fd_elem->elem);
   free(fd_elem);
 }

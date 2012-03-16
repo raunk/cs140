@@ -211,7 +211,7 @@ frame_find_eviction_candidate(void)
               if (supp_pg->is_mmapped) {
                 /* Dirty mmap'ed file page, so write back to disk. */
                 ASSERT(supp_pg->writable);
-                safe_file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
+                file_write_at(supp_pg->f, frm->physical_address, PGSIZE, supp_pg->off);
                 pagedir_set_dirty (frm->owner->pagedir, frm->user_address, false);
                 
                 /* Give page second chance. */

@@ -241,7 +241,7 @@ static void syscall_create(struct intr_frame * f)
   char* fname = *(char**)get_nth_parameter(f->esp, 1, sizeof(char*), f); 
   syscall_check_user_pointer(fname, f);
 
-//  printf("syscall.c:syscall_create, filename=%s", fname);
+  //printf("syscall.c:syscall_create, filename=%s", fname);
   int len = strlen(fname);
 
   if(len < 1 || len > MAX_FILE_NAME){
@@ -458,7 +458,7 @@ static void syscall_mkdir(struct intr_frame *f)
     return;
   }
   
-  //printf("OPENING PARENT OF: %s\n", dir);
+  //printf("syscall.c:syscall_mkdir: opening parent dir for path %s\n", dir);
   // The parent directory must already exist
   struct dir* parent_dir = dir_open_parent(dir);
   if(parent_dir == NULL)
@@ -471,8 +471,14 @@ static void syscall_mkdir(struct intr_frame *f)
   // Allocate an inode
   block_sector_t result;
 
-  free_map_allocate(1, &result);
+  bool allocated = free_map_allocate(1, &result);
+  if(!allocated) {
+    f->eax = false;
+    return; 
+  }
   inode = inode_open(result);
+  
+  //printf("syscall.c:syscall_mkdir: allocated inode %d\n", result);
 
   // Create a new directory
   struct inode* parent_inode = dir_get_inode(parent_dir);
@@ -511,7 +517,6 @@ static void syscall_readdir(struct intr_frame *f)
     success = dir_readdir(cur_dir, name);
     if(!success)
       break;
-    
     if(strcmp(name, ".") != 0 && strcmp(name, "..") != 0) {
       break;
     } else {
@@ -520,8 +525,6 @@ static void syscall_readdir(struct intr_frame *f)
       success = false;
     }
   }
-  
-  //printf("JUST READ: %s\n", name);
   
   f->eax = success;
 }
@@ -754,14 +757,20 @@ syscall_write(struct intr_frame *f)
   // Make sure we are writing to something writeable
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
+  /*
+  printf("syscall.c:syscall_write: file pointer = %p\n",
+      fd_elem->f);
 
-//  printf("syscall.c:syscall_write: file pointer = %p\n",
- //     fd_elem->f);
-
-//  printf("syscall.c:syscall_write  file inum = %d\n",
-    //inode_get_inumber(file_get_inode(fd_elem->f)));
-
+  printf("syscall.c:syscall_write  file inum = %d\n",
+    inode_get_inumber(file_get_inode(fd_elem->f)));
+    */
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
+  
+  /*
+  printf("syscall.c:syscall_write  wrote bytes = %d\n",
+    bytes_written);
+  */
+  
   f->eax = bytes_written;
 }
 
@@ -778,7 +787,7 @@ syscall_open(struct intr_frame *f)
 //  printf("syscall.c:syscall_open: OPENING %s\n", fname);
   struct file *fi = safe_filesys_open (fname);
 
- // printf("syscall.c:syscall_open file pointer =%p\n", fi);
+  //printf("syscall.c:syscall_open file pointer =%p\n", fi);
 
   if (!fi) {
     f->eax = -1;
@@ -786,10 +795,11 @@ syscall_open(struct intr_frame *f)
   }
   int fd = thread_add_file_descriptor_elem(fi)->fd;
 
-  //printf("syscall.c:syscall_open: fd=%d\n", fd);
-  //printf("syscall.c:syscall_open  file inum = %d\n",
-  //  inode_get_inumber(fi));
-  
+/*
+  printf("syscall.c:syscall_open: fd=%d\n", fd);
+  printf("syscall.c:syscall_open  file inum = %d\n",
+    inode_get_inumber(file_get_inode(fi)));
+  */
   /* If a directory we need to open the dir */
   if(file_isdir(fi)) {
     struct dir* dir = dir_open(file_get_inode(fi));

@@ -56,6 +56,7 @@ free_map_allocate (size_t cnt, block_sector_t *sectorp)
  /* printf("free-map.c:free_map_allocate, success=%d, sector=%d\n", 
       success, sector);
   */
+  return success;
 }
 
 /* Makes CNT sectors starting at SECTOR available for use. */

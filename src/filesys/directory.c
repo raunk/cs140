@@ -270,7 +270,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-    /*
+  /*  
     printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
   printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
@@ -281,9 +281,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
   { 
-/*    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    /*
+    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
-*/
+    */
     if (!e.in_use)
       break;
   }
@@ -359,7 +360,6 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  //printf("CUR DIR OFFSET: %d\n", dir->pos);
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;

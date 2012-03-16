@@ -195,7 +195,10 @@ handle_direct_block(block_sector_t base_sector, block_sector_t file_sector)
 
   if(result == 0)//  && base_sector != FREE_MAP_SECTOR)
   {
-    free_map_allocate(1, &result);
+    bool allocated = free_map_allocate(1, &result);
+    if(!allocated) {
+      return -1; 
+    }
     write_inode_disk_pointer(base_sector, file_sector, result);
   }  
   
@@ -211,7 +214,10 @@ handle_indirect_block(block_sector_t base_sector, block_sector_t file_sector)
       read_inode_disk_pointer(base_sector, INDIRECT_BLOCK_INDEX);
   if(ib_sector == 0)
     {
-      free_map_allocate(1, &ib_sector);
+      bool allocated = free_map_allocate(1, &ib_sector);
+      if(!allocated) {
+        return -1; 
+      }
       write_inode_disk_pointer(base_sector, INDIRECT_BLOCK_INDEX, ib_sector);
       init_indirect_block(ib_sector);
     }
@@ -219,7 +225,10 @@ handle_indirect_block(block_sector_t base_sector, block_sector_t file_sector)
   block_sector_t result = read_indirect_block_pointer(ib_sector, idx);
   if(result == 0)
   {
-    free_map_allocate(1, &result);
+    bool allocated = free_map_allocate(1, &result);
+    if(!allocated) {
+      return -1; 
+    }
     write_indirect_block_pointer(ib_sector, idx, result);
   }
 
@@ -240,7 +249,11 @@ handle_doubly_indirect_block(block_sector_t base_sector,
       read_inode_disk_pointer(base_sector, DOUBLY_INDIRECT_BLOCK_INDEX);
   if(ib_sector == 0)
     {
-      free_map_allocate(1, &ib_sector);
+      //free_map_allocate(1, &ib_sector);
+      bool allocated = free_map_allocate(1, &ib_sector);
+      if(!allocated) {
+        return -1; 
+      }
       write_inode_disk_pointer(base_sector,
           DOUBLY_INDIRECT_BLOCK_INDEX, ib_sector);
       init_indirect_block(ib_sector);
@@ -250,7 +263,10 @@ handle_doubly_indirect_block(block_sector_t base_sector,
       read_indirect_block_pointer(ib_sector, first_idx);
   if(next_block == 0)
     {
-      free_map_allocate(1, &next_block);
+      bool allocated = free_map_allocate(1, &next_block);
+      if(!allocated) {
+        return -1; 
+      }
       write_indirect_block_pointer(ib_sector, first_idx, next_block);
       init_indirect_block(next_block);
     }
@@ -258,7 +274,10 @@ handle_doubly_indirect_block(block_sector_t base_sector,
   block_sector_t result = read_indirect_block_pointer(next_block, second_idx);
   if(result == 0)
   {
-    free_map_allocate(1, &result);
+    bool allocated = free_map_allocate(1, &result);
+    if(!allocated) {
+      return -1; 
+    }
     write_indirect_block_pointer(next_block, second_idx, result);
   }
   
@@ -552,9 +571,14 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
 
+  if(offset >= inode_length(inode)) {
+    //printf("OFFSET IS GREATER THAN LENGTH!!\n");
+    return 0;
+  }
   if(offset + size > inode_length(inode)) {
     size = inode_length(inode) - offset;
   }
+  
 
   while (size > 0) 
     {

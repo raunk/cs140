@@ -222,8 +222,6 @@ cache_evict()
     cond_wait(&operations_finished, &cache_lock);
   }
   
-  
-  
   lock_release(&cache_lock);
   
   /* I/O action, so don't block operations on other sectors*/
@@ -326,15 +324,14 @@ cache_get(block_sector_t sector)
 {
   if (sector > sector_max)
     PANIC("cache_get(): INVALID SECTOR REQUESTED");
-  // FREE_MAP_SECTOR is 0??
   if (sector == FREE_MAP_SECTOR)
     return &free_map_cache;
   
   /* Block if sector is under I/O. The block is either being read into
-  the cache from disk or being written from the cache to disk. */
+     the cache from disk or being written from the cache to disk. */
   while (is_sector_under_io(sector)) {
     cond_wait(&io_finished, &cache_lock);
-    }
+  }
 
   struct cache_elem *c = cache_lookup(sector);
   if (c) {

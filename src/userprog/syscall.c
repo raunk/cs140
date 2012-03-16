@@ -644,7 +644,7 @@ syscall_write(struct intr_frame *f)
   printf("syscall.c:syscall_write  file inum = %d\n",
     inode_get_inumber(file_get_inode(fd_elem->f)));
     */
-  off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
+  off_t bytes_written = file_write(fd_elem->f, buffer, length);
   
   /*
   printf("syscall.c:syscall_write  wrote bytes = %d\n",

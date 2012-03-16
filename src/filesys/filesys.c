@@ -81,6 +81,7 @@ last_path_component(const char* pathname, char* dest)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
+//  printf("Filesys create %s, %d\n", name, initial_size);
   block_sector_t inode_sector = 0;
   // Open the parent directory
   struct dir* dir = dir_open_parent(name);

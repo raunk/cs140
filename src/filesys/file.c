@@ -48,6 +48,10 @@ file_close (struct file *file)
 {
   if (file != NULL)
     {
+      // write any dirty blocks back to disk
+      // todo: periodically flush cache????
+      //cache_flush();
+      
       file_allow_write (file);
       inode_close (file->inode);
       free (file); 
@@ -103,6 +107,7 @@ file_write (struct file *file, const void *buffer, off_t size)
 {
   off_t bytes_written = inode_write_at (file->inode, buffer, size, file->pos);
   file->pos += bytes_written;
+  
   return bytes_written;
 }
 

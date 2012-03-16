@@ -156,9 +156,14 @@ write_inode_disk_pointer(block_sector_t sector, int ptr_index,
 static bool
 read_inode_disk_is_dir(block_sector_t sector)
 {
+  /* The free map sector is a special case */
+  if(sector == FREE_MAP_SECTOR)
+     return false;
+
   bool is_dir;
   cache_read_bytes(sector, &is_dir, sizeof(bool), INODE_DISK_ISDIR_OFFSET);
-  return is_dir;
+  return is_dir & 0x1;
+//  return is_dir;
 }
 
 static off_t
@@ -363,20 +368,13 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
       disk_inode->is_dir = is_dir;
       disk_inode->magic = INODE_MAGIC;
       disk_inode->start = sector;
-
-//      if(sector != FREE_MAP_SECTOR &&
-//         sector != ROOT_DIR_SECTOR)
-//      {
-//        free_map_set_used(sector);
-//      }
-//
+      
       size_t j;
       for(j = 0; j < INODE_INDEX_COUNT; j++)
         {
           disk_inode->index[j] = 0; // Mark this block as unused
         }
 
-//      printf("Cache write in I_CREATE\n");
       cache_write(sector, disk_inode);
       
       /// Just created inode santiy check
@@ -546,8 +544,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
 
-  if(offset + size > inode_length(inode))
-    return 0;
+  if(offset + size > inode_length(inode)) {
+    size = inode_length(inode) - offset;
+  }
 
   while (size > 0) 
     {

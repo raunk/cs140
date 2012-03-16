@@ -390,6 +390,7 @@ exit_current_process(int status)
   safe_file_close(cur->executing_file);
 
   sema_up(&cur->is_dying);
+
   printf("%s: exit(%d)\n", thread_name(), cur->exit_status);
   
   thread_exit();
@@ -726,6 +727,7 @@ syscall_write(struct intr_frame *f)
   syscall_check_user_pointer(buffer, f);
   syscall_check_buffer_bounds(buffer, length, f);
   
+
   if (fd == STDOUT_FILENO) {
     /* Write to the console. Should write all of buffer in one call to putbuf(),
        at least as long as size is not bigger than a few hundred bytes. */
@@ -745,11 +747,11 @@ syscall_write(struct intr_frame *f)
     f->eax = 0;
     return;
   }
-  
+
   // Make sure we are writing to something writeable
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
-    
+
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
 }

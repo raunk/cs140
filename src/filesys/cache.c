@@ -325,6 +325,7 @@ cache_get(block_sector_t sector)
 {
   if (sector > sector_max)
     PANIC("cache_get(): INVALID SECTOR REQUESTED");
+  // FREE_MAP_SECTOR is 0??
   if (sector == FREE_MAP_SECTOR)
     return &free_map_cache;
   

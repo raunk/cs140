@@ -175,7 +175,7 @@ lookup (const struct dir *dir, const char *name,
   struct dir_entry e;
   size_t ofs;
 
-  print_dir(dir);
+  //print_dir(dir);
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
@@ -210,8 +210,8 @@ bool
 dir_lookup (const struct dir *dir, const char *name,
             struct inode **inode) 
 {
-  printf("directory.c, dir_lookup: dir inum=%d, find filename=%s\n",
-    inode_get_inumber(dir->inode), name);
+//  printf("directory.c, dir_lookup: dir inum=%d, find filename=%s\n",
+//    inode_get_inumber(dir->inode), name);
 
 
   struct dir_entry e;

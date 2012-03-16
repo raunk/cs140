@@ -257,14 +257,14 @@ cache_flush(void)
 
       if(c->is_dirty)
       {
-        printf("cache.c:cache_flush: Write block %d\n", c->sector);
+//        printf("cache.c:cache_flush: Write block %d\n", c->sector);
         block_write(fs_device, c->sector, c->data);
       }
     }
 
   block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
 
-  printf("FLUSHED CACHE\n");
+//  printf("FLUSHED CACHE\n");
 
   //TODO: free list and cache elems..
 }

@@ -63,8 +63,8 @@ make_tar_archive (const char *archive_name, char *files[], size_t file_cnt)
 
   archive_fd = open (archive_name);
 
-  printf("tar.c:make_tar_archive: Archive name=%s, fd=%d\n",
-    archive_name, archive_fd);
+//  printf("tar.c:make_tar_archive: Archive name=%s, fd=%d\n",
+ //   archive_name, archive_fd);
 
   if (archive_fd < 0)
     {
@@ -95,7 +95,7 @@ static bool
 archive_file (char file_name[], size_t file_name_size,
               int archive_fd, bool *write_error) 
 {
-  printf("Achive file %s\n", file_name);
+//  printf("Achive file %s\n", file_name);
 
   int file_fd = open (file_name);
 
@@ -137,13 +137,13 @@ archive_ordinary_file (const char *file_name, int file_fd,
   bool success = true;
   int file_size = filesize (file_fd);
   
-  printf("Archive normal %s\n", file_name);
+//  printf("Archive normal %s\n", file_name);
 
   if (!write_header (file_name, USTAR_REGULAR, file_size,
                      archive_fd, write_error))
     return false;
 
-  printf("Wrote header\n");
+ // printf("Wrote header\n");
 
   while (file_size > 0) 
     {
@@ -178,7 +178,7 @@ archive_directory (char file_name[], size_t file_name_size, int file_fd,
   size_t dir_len;
   bool success = true;
 
-  printf("Archive dir %s\n", file_name);
+//  printf("Archive dir %s\n", file_name);
 
   dir_len = strlen (file_name);
   if (dir_len + 1 + READDIR_MAX_LEN + 1 > file_name_size) 

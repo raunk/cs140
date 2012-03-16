@@ -19,9 +19,9 @@ free_map_init (void)
   bitmap_mark (free_map, FREE_MAP_DATA_SECTOR);
   bitmap_mark (free_map, ROOT_DIR_SECTOR);
 
-  printf("free-map.c:free_map_init, bitmap[0]=%d\n", 
+/*  printf("free-map.c:free_map_init, bitmap[0]=%d\n", 
       bitmap_test(free_map, 0));
-  
+ */ 
 }
 
 
@@ -39,9 +39,9 @@ free_map_set_used(block_sector_t sector)
 bool
 free_map_allocate (size_t cnt, block_sector_t *sectorp)
 {
-  printf("free-map.c:free_map_allocate, bitmap[0]=%d\n", 
+  /*printf("free-map.c:free_map_allocate, bitmap[0]=%d\n", 
       bitmap_test(free_map, 0));
-
+*/
   block_sector_t sector = bitmap_scan_and_flip (free_map, 0, cnt, false);
   if (sector != BITMAP_ERROR
       && free_map_file != NULL
@@ -53,8 +53,9 @@ free_map_allocate (size_t cnt, block_sector_t *sectorp)
   if (sector != BITMAP_ERROR)
     *sectorp = sector;
   bool success =  sector != BITMAP_ERROR;
-  printf("free-map.c:free_map_allocate, success=%d, sector=%d\n", 
+ /* printf("free-map.c:free_map_allocate, success=%d, sector=%d\n", 
       success, sector);
+  */
 }
 
 /* Makes CNT sectors starting at SECTOR available for use. */
@@ -72,9 +73,9 @@ free_map_open (void)
 {
   free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
 
-  printf("free-map.c:free_map_open, free_map_file_pointer=%p\n",
+/*  printf("free-map.c:free_map_open, free_map_file_pointer=%p\n",
       free_map_file);
-
+*/
   if (free_map_file == NULL)
     PANIC ("can't open free map");
   if (!bitmap_read (free_map, free_map_file))

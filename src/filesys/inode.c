@@ -624,13 +624,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   check_length(inode, offset + size);
 
-  printf("inode.c:inode_write_at: Writing inode=%d\n", inode_get_inumber(inode));
+//  printf("inode.c:inode_write_at: Writing inode=%d\n", inode_get_inumber(inode));
 
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
-      printf("inode.c:inode_write_at: sector being written: %d\n", sector_idx);
+ //     printf("inode.c:inode_write_at: sector being written: %d\n", sector_idx);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int chunk_size = size < sector_left ? size : sector_left;

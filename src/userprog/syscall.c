@@ -241,7 +241,7 @@ static void syscall_create(struct intr_frame * f)
   char* fname = *(char**)get_nth_parameter(f->esp, 1, sizeof(char*), f); 
   syscall_check_user_pointer(fname, f);
 
-  printf("syscall.c:syscall_create, filename=%s", fname);
+//  printf("syscall.c:syscall_create, filename=%s", fname);
   int len = strlen(fname);
 
   if(len < 1 || len > MAX_FILE_NAME){
@@ -724,7 +724,7 @@ syscall_write(struct intr_frame *f)
   char* buffer = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3, sizeof(unsigned), f);
 
-  printf("syscall.c:syscall_write: Write len=%d to fd=%d\n", length, fd);
+//  printf("syscall.c:syscall_write: Write len=%d to fd=%d\n", length, fd);
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer, f);
@@ -755,11 +755,11 @@ syscall_write(struct intr_frame *f)
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
 
-  printf("syscall.c:syscall_write: file pointer = %p\n",
-      fd_elem->f);
+//  printf("syscall.c:syscall_write: file pointer = %p\n",
+ //     fd_elem->f);
 
-  printf("syscall.c:syscall_write  file inum = %d\n",
-    inode_get_inumber(file_get_inode(fd_elem->f)));
+//  printf("syscall.c:syscall_write  file inum = %d\n",
+    //inode_get_inumber(file_get_inode(fd_elem->f)));
 
   off_t bytes_written = safe_file_write(fd_elem->f, buffer, length);
   f->eax = bytes_written;
@@ -775,10 +775,10 @@ syscall_open(struct intr_frame *f)
   void* file = get_nth_parameter(esp, 1, sizeof(char*), f);
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname, f);
-  printf("syscall.c:syscall_open: OPENING %s\n", fname);
+//  printf("syscall.c:syscall_open: OPENING %s\n", fname);
   struct file *fi = safe_filesys_open (fname);
 
-  printf("syscall.c:syscall_open file pointer =%p\n", fi);
+ // printf("syscall.c:syscall_open file pointer =%p\n", fi);
 
   if (!fi) {
     f->eax = -1;
@@ -786,9 +786,9 @@ syscall_open(struct intr_frame *f)
   }
   int fd = thread_add_file_descriptor_elem(fi)->fd;
 
-  printf("syscall.c:syscall_open: fd=%d\n", fd);
-  printf("syscall.c:syscall_open  file inum = %d\n",
-    inode_get_inumber(fi));
+  //printf("syscall.c:syscall_open: fd=%d\n", fd);
+  //printf("syscall.c:syscall_open  file inum = %d\n",
+  //  inode_get_inumber(fi));
   
   /* If a directory we need to open the dir */
   if(file_isdir(fi)) {

@@ -120,6 +120,7 @@ static void syscall_create(struct intr_frame * f)
   char* fname = *(char**)get_nth_parameter(f->esp, 1, sizeof(char*), f); 
   syscall_check_user_pointer(fname, f);
 
+//  printf("syscall.c:syscall_create, filename=%s", fname);
   int len = strlen(fname);
 
   if(len < 1 || len > MAX_FILE_NAME){
@@ -601,6 +602,8 @@ syscall_write(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
   char* buffer = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3, sizeof(unsigned), f);
+
+//  printf("syscall.c:syscall_write: Write len=%d to fd=%d\n", length, fd);
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer, f);
@@ -645,13 +648,17 @@ syscall_open(struct intr_frame *f)
   void* file = get_nth_parameter(esp, 1, sizeof(char*), f);
   char* fname = *(char**)file;
   syscall_check_user_pointer(fname, f);
-  //printf("OPENING %s\n", fname);
+
   struct file *fi = filesys_open (fname);
   if (!fi) {
     f->eax = -1;
     return;
   }
   int fd = thread_add_file_descriptor_elem(fi)->fd;
+
+  //printf("syscall.c:syscall_open: fd=%d\n", fd);
+  //printf("syscall.c:syscall_open  file inum = %d\n",
+  //  inode_get_inumber(fi));
   
   /* If a directory we need to open the dir */
   if(file_isdir(fi)) {

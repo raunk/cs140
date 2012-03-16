@@ -21,6 +21,26 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+
+void
+print_dir(struct dir* dir)
+{
+  struct dir_entry e;
+  size_t ofs;
+  printf("directory.c:print_dir--------- DIR ENTRIES FOR -------------------\n");
+  printf("\t\tDIR IS %p\n", dir);
+  printf("\t\tINODE IS %d\n", inode_get_inumber(dir->inode));
+  for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+       ofs += sizeof e) 
+  {
+    printf("\t\tDir Entry: sector=%d, name=%s, inused=%d\n", 
+         e.inode_sector, e.name, e.in_use); 
+        
+  }
+  printf("\t\t------------- END DIR ENTRIES FOR -------------------\n");
+  return false;
+}
+
 /* Creates a directory with parent directory PARENT with 
    space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -154,6 +174,8 @@ lookup (const struct dir *dir, const char *name,
 {
   struct dir_entry e;
   size_t ofs;
+
+  //print_dir(dir);
   
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
@@ -188,6 +210,10 @@ bool
 dir_lookup (const struct dir *dir, const char *name,
             struct inode **inode) 
 {
+//  printf("directory.c, dir_lookup: dir inum=%d, find filename=%s\n",
+//    inode_get_inumber(dir->inode), name);
+
+
   struct dir_entry e;
 
   ASSERT (dir != NULL);
@@ -244,7 +270,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-    /*
+  /*  
     printf("DIRADD: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
   printf("We want to write a dir entry at ofs=%d to inode %p (%d)\n",
@@ -255,9 +281,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
   { 
-/*    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
+    /*
+    printf("DIRCHECK: Dir Entry: sector=%d, name=%s, inused=%d\n", 
         e.inode_sector, e.name, e.in_use); 
-*/
+    */
     if (!e.in_use)
       break;
   }
@@ -333,7 +360,6 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  //printf("CUR DIR OFFSET: %d\n", dir->pos);
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;

@@ -89,7 +89,8 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-//    struct inode_disk data;             /* Inode content. */
+    int read_limit;                     /* Reads not allowed passed here (used for
+                                           concurrent access) */
   };
 
 
@@ -491,6 +492,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  inode->read_limit = NO_READ_LIMIT;
 
   return inode;
 }
@@ -609,6 +611,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 
   off_t inode_len = inode_length(inode);
   
+  /* Make sure no limit imposed */
+  if(inode->read_limit != NO_READ_LIMIT) {
+    inode_len = inode->read_limit;
+  }
+  
   /* Check if bytes requested go past length of file */
   if(offset >= inode_len) {
     return 0;
@@ -616,6 +623,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   if(offset + size > inode_len) {
     size = inode_len - offset;
   }
+  
   
   handle_read_ahead(inode, inode_len, size, offset);
 
@@ -661,10 +669,11 @@ check_length(struct inode* inode, off_t new_length)
 {
   struct inode_disk id;
   cache_read(inode->sector, &id);
-//  printf("Old len=%d, New len=%d\n", id->length, new_length);
+  
   if(new_length > id.length)
     {
       // Write the new length back to the buffer cache block.
+      inode->read_limit = id.length;
       write_inode_disk_length(inode->sector, new_length);
     }  
 }
@@ -715,6 +724,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
+    
+  inode->read_limit = NO_READ_LIMIT;
 
   return bytes_written;
 }

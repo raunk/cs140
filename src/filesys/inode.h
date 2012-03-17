@@ -5,6 +5,8 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
+#define NO_READ_LIMIT -1
+
 struct bitmap;
 
 void inode_init (void);

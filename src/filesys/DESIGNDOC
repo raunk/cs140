@@ -245,49 +245,58 @@ this required us to actually open the directory in order to close it.
 
 Represents one element in the cache.
 
-  9 struct cache_elem {
- 10   block_sector_t sector; // The sector number
- 11   bool is_dirty;		// Whether or not it is dirty
- 12   int num_operations;		// Pending operations, for synchronization
- 13   struct list_elem list_elem; /* List element for cache*/
- 14   struct hash_elem hash_elem; /* Hash element for cache*/
- 15   char data[512]; /* Cache data */
- 16 };
- 17 static struct lock done_lock;	// For properly synchronizing
-					// cache_done with read ahead thread
- 18 
- 19 static int cache_stop = 0;	// Flag when entering cache_done
- 20 
- 21 static struct list cache_list;	// Linked list to find LRU element
- 22 static struct hash cache_hash;	// Hash to find cache elements
- 23 
- 24 
- 25 static struct lock cache_lock; // Global cache lock
- 26 static struct condition io_finished; 
-// Condition when io operation completes
+struct cache_elem {
+	block_sector_t sector; 		// The sector number
+	bool is_dirty;				// Whether or not it is dirty
+	int num_operations;			// Pending operations, for synchronization
+	struct list_elem list_elem; /* List element for cache*/
+	struct hash_elem hash_elem; /* Hash element for cache*/
+	char data[512]; 			/* Cache data */
+};
+static struct lock done_lock;	// For properly synchronizing
+								// cache_done with read ahead thread 
+static int cache_stop = 0;	// Flag when entering cache_done
+ 
+static struct list cache_list;	// Linked list to find LRU element
+static struct hash cache_hash;	// Hash to find cache elements
+ 
+static struct lock cache_lock; // Global cache lock
+static struct condition io_finished; // Condition when io operation completes
 
- 27 static struct condition operations_finished;
 // Condition to wait on when evicting to make sure no operations
 // are pending to this block
+static struct condition operations_finished;
 
- 28 static struct list sectors_under_io;
-// List of sectors currently under io
- 29 
- 30 static block_sector_t sector_max;
-// Largest sector in the disk
- 31 
- 32 struct sector_under_io {
- 33   block_sector_t sector;
- 34   struct list_elem elem;
- 35 };
-// List element to store all sectors that are under io
+static struct list sectors_under_io; // List of sectors currently under io
+static block_sector_t sector_max; // Largest sector in the disk
 
- 56 static int cache_hits;
- 57 static int cache_misses;
+struct sector_under_io {
+	block_sector_t sector;
+	// List element to store all sectors that are under io
+	struct list_elem elem;
+};
+
 // Stats to analyze cache
- 58 
- 59 struct cache_elem free_map_cache;
+static int cache_hits;
+static int cache_misses;
+
 // Element to always keep free map meta-data around
+struct cache_elem free_map_cache; 
+
+
+// Threads for running read ahead and write behind
+static struct thread *read_ahead_thread;
+static struct thread *write_behind_thread;
+
+static struct list read_ahead_queue; /* List of sectors to read from disk */
+static struct lock read_ahead_lock;	 /* Protects read ahead list */
+static struct condition do_read_ahead; /* Signals when there's something to
+										  read ahead */
+
+struct read_ahead_sector {
+  block_sector_t sector;
+  struct list_elem elem;
+};
 
 
 ---- ALGORITHMS ----

@@ -346,12 +346,14 @@ free_inode_used_blocks(struct inode* inode)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
-/* Read ahead threads, lists, lock and conditions */
+// Threads for running read ahead and write behind
 static struct thread *read_ahead_thread;
 static struct thread *write_behind_thread;
-static struct list read_ahead_queue;
-static struct lock read_ahead_lock;
-static struct condition do_read_ahead;
+
+static struct list read_ahead_queue; /* List of sectors to read from disk */
+static struct lock read_ahead_lock;	 /* Protects read ahead list */
+static struct condition do_read_ahead; /* Signals when there's something to
+										                      read ahead */
 
 /* Element in read ahead queue */ 
 struct read_ahead_sector {

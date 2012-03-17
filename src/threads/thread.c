@@ -14,6 +14,7 @@
 #include "threads/malloc.h"
 #include "threads/fixed-point.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -143,7 +144,8 @@ thread_get_working_directory()
 {
   struct thread* cur_thread = thread_current();
   if(cur_thread->working_directory == NULL) {
-    cur_thread->working_directory = dir_open(inode_open(ROOT_DIR_SECTOR));
+    struct inode* inode = inode_open(ROOT_DIR_SECTOR);
+    cur_thread->working_directory = dir_open(inode);
   }
   return cur_thread->working_directory;
 }

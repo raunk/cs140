@@ -40,9 +40,8 @@ void init_indirect_block(block_sector_t sector);
 void print_index(block_sector_t* b);
 void print_indirect(block_sector_t sec);
 void free_inode_used_blocks(struct inode* inode);
-void check_length(struct inode* inode, off_t new_length);
+bool check_length(struct inode* inode, off_t new_length);
 
-bool free_map_setup = false;
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -91,6 +90,8 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     int read_limit;                     /* Reads not allowed passed here (used for
                                            concurrent access) */
+    struct lock extending_file_lock;    /* Prevents two threads from extending a file
+                                           at the same time */
   };
 
 
@@ -493,6 +494,7 @@ inode_open (block_sector_t sector)
   inode->deny_write_cnt = 0;
   inode->removed = false;
   inode->read_limit = NO_READ_LIMIT;
+  lock_init(&inode->extending_file_lock);
 
   return inode;
 }
@@ -664,7 +666,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 }
 
 
-void
+/* Checks the length and returns true if extending the
+   length of the file */
+bool
 check_length(struct inode* inode, off_t new_length)
 {
   struct inode_disk id;
@@ -675,7 +679,9 @@ check_length(struct inode* inode, off_t new_length)
       // Write the new length back to the buffer cache block.
       inode->read_limit = id.length;
       write_inode_disk_length(inode->sector, new_length);
+      return true;
     }  
+    return false;
 }
 
 /* Writes SIZE bytes from BUFFER into INODE, starting at OFFSET.
@@ -689,18 +695,20 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
+  
+  bool extending = check_length(inode, offset + size);
+  if(extending) {
+    lock_acquire(&inode->extending_file_lock);
+  }
 
   if (inode->deny_write_cnt)
     return 0;
-
-//  printf("inode.c:inode_write_at: Writing inode=%d\n", inode_get_inumber(inode));
-  check_length(inode, offset + size);
   
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
- //     printf("inode.c:inode_write_at: sector being written: %d\n", sector_idx);
+
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int chunk_size = size < sector_left ? size : sector_left;
@@ -726,6 +734,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     }
     
   inode->read_limit = NO_READ_LIMIT;
+  if(extending) {
+    lock_release(&inode->extending_file_lock);
+  }
 
   return bytes_written;
 }

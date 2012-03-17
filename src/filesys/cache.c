@@ -436,7 +436,6 @@ cache_is_done(void)
 void
 cache_done(void)
 {
-  
   cache_flush(); 
 
   lock_acquire(&done_lock);

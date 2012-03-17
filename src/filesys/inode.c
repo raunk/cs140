@@ -40,8 +40,6 @@ void init_indirect_block(block_sector_t sector);
 void free_inode_used_blocks(struct inode* inode);
 void check_length(struct inode* inode, off_t new_length);
 
-bool free_map_setup = false;
-
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 #define INODE_DIRECT_BLOCK_COUNT 12
@@ -92,12 +90,14 @@ struct inode
   };
 
 
+/* To initialize an indirect block, we zero all of its pointers */
 void
 init_indirect_block(block_sector_t sector)
 {
   cache_set_to_zero(sector);
 }
 
+/* Read an indirect pointer at index PTR_INDEX from sector SECTOR */
 static block_sector_t
 read_indirect_block_pointer(block_sector_t sector, int ptr_index)
 {
@@ -107,6 +107,7 @@ read_indirect_block_pointer(block_sector_t sector, int ptr_index)
   return ptr;
 }
 
+/* Write an indirect pointer at index PTR_INDEX for sector SECTOR */
 static void
 write_indirect_block_pointer(block_sector_t sector, int ptr_index,
     block_sector_t ptr_val)
@@ -115,6 +116,8 @@ write_indirect_block_pointer(block_sector_t sector, int ptr_index,
       ptr_index * sizeof(block_sector_t));
 }
 
+/* Offsets into inode_disk struct so that we can access struct 
+ * members through cache_read and cache_write bytes */
 #define INODE_DISK_LENGTH_OFFSET (sizeof(block_sector_t))
 
 #define INODE_DISK_PTRS_OFFSET \
@@ -123,6 +126,7 @@ write_indirect_block_pointer(block_sector_t sector, int ptr_index,
 #define INODE_DISK_ISDIR_OFFSET \
 (INODE_DISK_PTRS_OFFSET + INODE_INDEX_COUNT*sizeof(block_sector_t))
 
+/* Read a pointer from sector SECTOR at index PTR_INDEX */
 static block_sector_t
 read_inode_disk_pointer(block_sector_t sector, int ptr_index)
 {
@@ -132,6 +136,7 @@ read_inode_disk_pointer(block_sector_t sector, int ptr_index)
   return ptr;
 }
 
+/* Write a pointer to sector SECTOR at index PTR_INDEX */
 static void
 write_inode_disk_pointer(block_sector_t sector, int ptr_index,
     block_sector_t ptr_val)
@@ -140,6 +145,7 @@ write_inode_disk_pointer(block_sector_t sector, int ptr_index,
       INODE_DISK_PTRS_OFFSET + ptr_index * sizeof(block_sector_t));
 }
 
+/* Determine if the sector is a directory */
 static bool
 read_inode_disk_is_dir(block_sector_t sector)
 {
@@ -148,6 +154,7 @@ read_inode_disk_is_dir(block_sector_t sector)
   return is_dir & 0x1;
 }
 
+/* Return the length of this inode */
 static off_t
 read_inode_disk_length(block_sector_t sector)
 {
@@ -156,6 +163,7 @@ read_inode_disk_length(block_sector_t sector)
   return length;
 }
 
+/* Write the length of this inode */
 static void
 write_inode_disk_length(block_sector_t sector, off_t length)
 {
@@ -163,6 +171,13 @@ write_inode_disk_length(block_sector_t sector, off_t length)
       INODE_DISK_LENGTH_OFFSET);
 }
 
+/* Lookup a direct block for sector BASE_SECTOR at file block 
+ * FILE_SECTOR_IDX. If the base_sector is 0 for the free map,
+ * we simply return the free map data sector. Otherwise, if 
+ * that sector pointer was already set, we can just return it.
+ * If it was not already set, we allocate a sector from the 
+ * free map, write it to the index and zero it out before
+ * returning. */
 static block_sector_t
 handle_direct_block(block_sector_t base_sector, int file_sector_idx) 
 {
@@ -187,6 +202,11 @@ handle_direct_block(block_sector_t base_sector, int file_sector_idx)
   return result;
 }
 
+/* To handle an indirect block, we first find proper index into the
+ * indirect block, by removing the direct block count. If any sectors
+ * are 0, we allocate and initialize them. If the actual block pointer
+ * is zero as well, we allocate a block, write it to the index, 
+ * and zero it out before returning */
 static block_sector_t
 handle_indirect_block(block_sector_t base_sector, int file_sector_idx)
 {
@@ -218,6 +238,12 @@ handle_indirect_block(block_sector_t base_sector, int file_sector_idx)
   return result;
 }
 
+/* Handles a doubly indirect block looking for FILE_SECTOR_IDX in the inode
+ * for BASE_SECTOR. We first have to verify that the first level of the doubly
+ * indirect block has been allocated and set up. We then verify the second
+ * level of the doubly indirect block. Finally, we look up the block to go to.
+ * If it is non-zero, we can simply return it, otherwise we allocate a block
+ * and set it in the index */
 static block_sector_t
 handle_doubly_indirect_block(block_sector_t base_sector, int file_sector_idx)
 {
@@ -277,7 +303,6 @@ byte_to_sector (const struct inode *inode, off_t pos)
 {
 
     ASSERT (inode != NULL);
-    // TODO: Fail if bigger pos > 8MB
 
     block_sector_t file_sector_idx = pos / BLOCK_SECTOR_SIZE;
 
@@ -321,12 +346,14 @@ free_inode_used_blocks(struct inode* inode)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
+/* Read ahead threads, lists, lock and conditions */
 static struct thread *read_ahead_thread;
 static struct thread *write_behind_thread;
 static struct list read_ahead_queue;
 static struct lock read_ahead_lock;
 static struct condition do_read_ahead;
 
+/* Element in read ahead queue */ 
 struct read_ahead_sector {
   block_sector_t sector;
   struct list_elem elem;
@@ -359,7 +386,6 @@ inode_init (void)
 bool
 inode_create (block_sector_t sector, off_t length, bool is_dir)
 {
-//  printf("\n\nCreate inode %d with size=%d\n\n", sector, length);
   struct inode_disk *disk_inode = NULL;
   bool success = false;
 
@@ -509,6 +535,8 @@ inode_remove (struct inode *inode)
 }
 
 
+/* The write behind thread function, which just flushes the cache
+ * every CACHE_FLUSH_WAIT_MS */
 static void
 execute_write_behind(void* aux UNUSED)
 {
@@ -624,6 +652,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 }
 
 
+/* Verifies the length of the inode, or expands the length if we
+ * are writing past the end. If we are expanding past the end
+ * we also set the read_limit so that other threads cannot read
+ * while we are currently in the process of writing past the end
+ * of the file. */
 void
 check_length(struct inode* inode, off_t new_length)
 {

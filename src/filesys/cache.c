@@ -6,29 +6,45 @@
 #include <stdio.h>
 #include "threads/synch.h"
 
+
+/* Represents one element in the LRU cache. */
 struct cache_elem {
-  block_sector_t sector; 
-  bool is_dirty;
+  block_sector_t sector;        /* Sector number for this cache element */ 
+  bool is_dirty;                /* Whether this element has been written to */
   int num_operations;           /* Tracks how many other processes are currently
                                    reading to or writing from this elem */
   struct list_elem list_elem;   /* List element for cache*/
   struct hash_elem hash_elem;   /* Hash elemetn for cache*/
   char data[512];               /* Cache data */ 
 };
+
+/* Lock to synchronize cache_done with the read ahead thread */
 static struct lock done_lock;
 
+/* Flag to alert that cache_done has been called */
 static int cache_stop = 0;
 
+
+/* Doubly linked list to allow us to easily find an element to evict */
 static struct list cache_list;
+
+/* Hash to quickly lookup elements in the cache */
 static struct hash cache_hash;
+
+/* Lock to prevent destructive concurrent modifications to cache 
+ * data structures */
 static struct lock cache_lock;
 
+/* Conditions to syncrhonize io in the cache */
 static struct condition io_finished;
 static struct condition operations_finished;
 static struct list sectors_under_io;
 
+/* The largest valid sector, given the disk size */
 static block_sector_t sector_max;
 
+/* A struct to maintain the list of which elements are currently
+ * under I/O */
 struct sector_under_io {
   block_sector_t sector;
   struct list_elem elem;
@@ -53,9 +69,11 @@ static void mark_sector_under_io(block_sector_t sector);
 static void unmark_sector_under_io(block_sector_t sector);
 static bool is_sector_under_io(block_sector_t sector);
 
+/* Maintain statistics about the cache */
 static int cache_hits;
 static int cache_misses;
 
+/* Always keep a cache element around for the free map meta-data */
 struct cache_elem free_map_cache;
 
 
@@ -163,6 +181,8 @@ cache_reinsert(struct cache_elem* elem)
   list_push_front(&cache_list, &elem->list_elem);
 }
 
+/* Mark sector SECTOR as currently being under I/O by putting it in the
+ * sectors_under_io list */
 static void
 mark_sector_under_io(block_sector_t sector)
 {
@@ -172,6 +192,8 @@ mark_sector_under_io(block_sector_t sector)
   list_push_front(&sectors_under_io, &s->elem);
 }
 
+/* Unmark sector as being under I/O by remving it from the sectors_under_io
+ * list */
 static void
 unmark_sector_under_io(block_sector_t sector)
 {
@@ -187,6 +209,7 @@ unmark_sector_under_io(block_sector_t sector)
   }
 }
 
+/* Determine if a sector is currently undergoing I/O */
 static bool
 is_sector_under_io(block_sector_t sector)
 {
@@ -201,6 +224,8 @@ is_sector_under_io(block_sector_t sector)
   return false;
 }
 
+/* Retrieve the oldest element in the cache, which is just at the back
+ * of the list */
 static struct cache_elem*
 get_oldest_cache_elem(void)
 {
@@ -257,6 +282,10 @@ cache_write(block_sector_t sector, const void* buffer)
   cache_write_bytes(sector, buffer, BLOCK_SECTOR_SIZE, 0);
 }
 
+/* When an operation finishes we decrement the number of pending
+ * operations on this cache element. If we are at 0 operations
+ * on this element, we brodcast so that an eviction of this 
+ * block can continue */
 static void
 mark_finished_operation(struct cache_elem *c)
 {
@@ -268,6 +297,11 @@ mark_finished_operation(struct cache_elem *c)
   lock_release(&cache_lock);
 }
 
+/* Perform read ahead for sector SECTOR. This operation has races
+ * with cache_done, because we cannot get an element from the cache
+ * after the cache elements have been freed. To prevent this race
+ * we have a done_lock, which must be held in order to get
+ * from the cache. */
 void
 cache_perform_read_ahead(block_sector_t sector)
 {
@@ -320,6 +354,7 @@ cache_write_bytes(block_sector_t sector, const void* buffer,
   mark_finished_operation(c);
 }
 
+/* Set sector SECTOR to zeros */
 void 
 cache_set_to_zero(block_sector_t sector)
 {
@@ -334,6 +369,7 @@ cache_set_to_zero(block_sector_t sector)
   mark_finished_operation(c);
 }
 
+/* Mark this cache block as dirty */
 void 
 cache_set_dirty(block_sector_t sector)
 {
@@ -379,6 +415,7 @@ cache_get(block_sector_t sector)
   return c; 
 }
 
+/* Print cache hits and misses at the end of the run */
 void
 cache_stats(void)
 {
@@ -386,6 +423,7 @@ cache_stats(void)
 }
 
 
+/* Find out if the cache done flag has been set */
 int
 cache_is_done(void)
 {

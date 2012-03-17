@@ -283,7 +283,6 @@ static int cache_misses;
 // Element to always keep free map meta-data around
 struct cache_elem free_map_cache; 
 
-
 // Threads for running read ahead and write behind
 static struct thread *read_ahead_thread;
 static struct thread *write_behind_thread;

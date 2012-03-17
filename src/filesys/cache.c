@@ -430,17 +430,25 @@ cache_flush(void)
 
       if(c->is_dirty && !is_sector_under_io(c->sector))
       {
-        mark_sector_under_io(c->sector);
+        c->num_operations++;
         lock_release(&cache_lock);
+        
+        /* Treat block flush as an operation, not an I/O action. Because
+           we are not evicting the block, other processes should be allowed
+           to read from/write to the block while it is being written to disk.
+           Like other operations, this should block I/O actions. */
         block_write(fs_device, c->sector, c->data);
+        
         lock_acquire(&cache_lock);
-        unmark_sector_under_io(c->sector);
-        cond_broadcast(&io_finished, &cache_lock);
+        c->num_operations--;
+        c->is_dirty = false;
+        if (c->num_operations == 0) {
+          cond_broadcast(&operations_finished, &cache_lock);
+        }
       }
     }
-
-  block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
-  
   lock_release(&cache_lock);
+  
+  block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
 }
 

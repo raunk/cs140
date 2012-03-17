@@ -15,6 +15,8 @@ struct cache_elem {
   char data[512]; /* Cache data */ 
 };
 
+static int cache_stop = 0;
+
 static struct list cache_list;
 static struct hash cache_hash;
 
@@ -267,6 +269,8 @@ void
 cache_perform_read_ahead(block_sector_t sector)
 {
   lock_acquire(&cache_lock);
+
+  if(cache_is_done()) return;
   struct cache_elem* c = cache_get(sector);
   lock_release(&cache_lock);
   
@@ -368,6 +372,12 @@ cache_stats(void)
 }
 
 
+int
+cache_is_done(void)
+{
+  return cache_stop;
+}
+
 /* The filesystem is done, so we should write all the
  * dirty cache blocks back to disk, and free the malloc'd
  * cache elements */
@@ -375,6 +385,7 @@ void
 cache_done(void)
 {
   cache_flush(); 
+  cache_stop = 1;  
 
   /* Free cache elements */
   struct list_elem *e;

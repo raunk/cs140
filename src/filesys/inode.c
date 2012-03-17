@@ -613,6 +613,8 @@ static void
 execute_read_ahead(void *aux UNUSED)
 {
   while (true) {
+    if(cache_is_done()) break;
+
     lock_acquire(&read_ahead_lock);
     if (list_empty(&read_ahead_queue)) {
       cond_wait(&do_read_ahead, &read_ahead_lock);

@@ -271,13 +271,11 @@ mark_finished_operation(struct cache_elem *c)
 void
 cache_perform_read_ahead(block_sector_t sector)
 {
-  if(cache_is_done()) return;
 
   lock_acquire(&cache_lock);
   lock_acquire(&done_lock);
-
+  if(cache_is_done()) return;
   struct cache_elem* c = cache_get(sector);
-
   lock_release(&done_lock);
   lock_release(&cache_lock);
   
@@ -356,7 +354,7 @@ cache_get(block_sector_t sector)
 
   struct cache_elem *c = cache_lookup(sector);
 
-  if(cache_is_done()) return;
+  if(cache_is_done()) return NULL;
 
   if (c) {
     /* Block is already in cache, so move it to the front */
@@ -395,10 +393,9 @@ void
 cache_done(void)
 {
   cache_flush(); 
-  cache_stop = 1;  
 
   lock_acquire(&done_lock);
-
+  cache_stop = 1;  
   /* Free cache elements */
   struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list);

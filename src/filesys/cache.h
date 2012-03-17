@@ -21,6 +21,7 @@ void cache_perform_read_ahead(block_sector_t sector);
 void cache_init(void);
 void cache_stats(void);
 
+int cache_is_done(void);
 void cache_done(void);
 void cache_flush(void);
 

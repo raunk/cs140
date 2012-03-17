@@ -14,11 +14,13 @@ struct cache_elem {
   struct hash_elem hash_elem; /* Hash elemetn for cache*/
   char data[512]; /* Cache data */ 
 };
+static struct lock done_lock;
 
 static int cache_stop = 0;
 
 static struct list cache_list;
 static struct hash cache_hash;
+
 
 static struct lock cache_lock;
 static struct condition io_finished;
@@ -91,6 +93,7 @@ cache_init()
   
   list_init(&sectors_under_io);
   lock_init(&cache_lock);
+  lock_init(&done_lock);
   cond_init(&io_finished);
   cond_init(&operations_finished);
   
@@ -268,10 +271,14 @@ mark_finished_operation(struct cache_elem *c)
 void
 cache_perform_read_ahead(block_sector_t sector)
 {
-  lock_acquire(&cache_lock);
-
   if(cache_is_done()) return;
+
+  lock_acquire(&cache_lock);
+  lock_acquire(&done_lock);
+
   struct cache_elem* c = cache_get(sector);
+
+  lock_release(&done_lock);
   lock_release(&cache_lock);
   
   mark_finished_operation(c);
@@ -348,6 +355,9 @@ cache_get(block_sector_t sector)
   }
 
   struct cache_elem *c = cache_lookup(sector);
+
+  if(cache_is_done()) return;
+
   if (c) {
     /* Block is already in cache, so move it to the front */
     cache_reinsert(c);
@@ -387,6 +397,8 @@ cache_done(void)
   cache_flush(); 
   cache_stop = 1;  
 
+  lock_acquire(&done_lock);
+
   /* Free cache elements */
   struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list);
@@ -398,6 +410,8 @@ cache_done(void)
 
       free(c);
     }
+  
+  lock_release(&done_lock);
 }
 
 /* Write any dirty blocks back to disk */

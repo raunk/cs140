@@ -193,6 +193,11 @@ page_fault (struct intr_frame *f)
     exit_current_process(-1);
   }
   
+  /* Rights violation */
+  if(not_present == 0) {
+    exit_current_process(-1);
+  }
+  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
   
@@ -210,9 +215,7 @@ page_fault (struct intr_frame *f)
   exit_current_process(-1);
 
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
+  /* Not reached */
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",

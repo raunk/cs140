@@ -16,6 +16,8 @@ void cache_read(block_sector_t sector, void* buffer);
 void cache_write(block_sector_t sector, const void* buffer);
 void cache_set_to_zero(block_sector_t sector);
 
+void cache_perform_read_ahead(block_sector_t sector);
+
 void cache_init(void);
 void cache_stats(void);
 

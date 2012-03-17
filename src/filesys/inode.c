@@ -6,6 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 #include "filesys/cache.h"
 #include <stdio.h>
 
@@ -22,11 +23,16 @@ static off_t read_inode_disk_length(block_sector_t sector);
 static void write_inode_disk_length(block_sector_t sector, off_t length);
 
 static block_sector_t handle_direct_block(block_sector_t base_sector,
-    block_sector_t file_sector);
+    int file_sector_idx);
 static block_sector_t handle_indirect_block(block_sector_t base_sector,
-    block_sector_t file_sector);
+    int file_sector_idx);
 static block_sector_t handle_doubly_indirect_block(block_sector_t base_sector,
-    block_sector_t file_sector);
+    int file_sector_idx);
+    
+static void execute_read_ahead(void *aux UNUSED);
+static void handle_read_ahead(struct inode *inode, int inode_len,
+    off_t size, off_t offset);
+
 
 bool free_map_setup = false;
 
@@ -184,9 +190,10 @@ write_inode_disk_length(block_sector_t sector, off_t length)
 }
 
 static block_sector_t
-handle_direct_block(block_sector_t base_sector, block_sector_t file_sector) 
+handle_direct_block(block_sector_t base_sector, int file_sector_idx) 
 {
-  block_sector_t result = read_inode_disk_pointer(base_sector, file_sector);
+  block_sector_t result = read_inode_disk_pointer(base_sector,
+                                                  file_sector_idx);
 
   if(base_sector == FREE_MAP_SECTOR)
   {
@@ -199,16 +206,16 @@ handle_direct_block(block_sector_t base_sector, block_sector_t file_sector)
     if(!allocated) {
       return -1; 
     }
-    write_inode_disk_pointer(base_sector, file_sector, result);
+    write_inode_disk_pointer(base_sector, file_sector_idx, result);
   }  
   
   return result;
 }
 
 static block_sector_t
-handle_indirect_block(block_sector_t base_sector, block_sector_t file_sector)
+handle_indirect_block(block_sector_t base_sector, int file_sector_idx)
 {
-  int idx = file_sector - INODE_DIRECT_BLOCK_COUNT;
+  int idx = file_sector_idx - INODE_DIRECT_BLOCK_COUNT;
 
   block_sector_t ib_sector =
       read_inode_disk_pointer(base_sector, INDIRECT_BLOCK_INDEX);
@@ -236,11 +243,10 @@ handle_indirect_block(block_sector_t base_sector, block_sector_t file_sector)
 }
 
 static block_sector_t
-handle_doubly_indirect_block(block_sector_t base_sector,
-    block_sector_t file_sector)
+handle_doubly_indirect_block(block_sector_t base_sector, int file_sector_idx)
 {
   int offset = INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS;
-  int adjusted = file_sector - offset;
+  int adjusted = file_sector_idx - offset;
   
   int first_idx = adjusted / NUM_BLOCK_POINTERS;
   int second_idx = adjusted % NUM_BLOCK_POINTERS;
@@ -249,7 +255,6 @@ handle_doubly_indirect_block(block_sector_t base_sector,
       read_inode_disk_pointer(base_sector, DOUBLY_INDIRECT_BLOCK_INDEX);
   if(ib_sector == 0)
     {
-      //free_map_allocate(1, &ib_sector);
       bool allocated = free_map_allocate(1, &ib_sector);
       if(!allocated) {
         return -1; 
@@ -300,24 +305,24 @@ byte_to_sector (const struct inode *inode, off_t pos)
 /*    if(inode->sector == FREE_MAP_SECTOR)
       return FREE_MAP_SECTOR;
 */
-    block_sector_t file_sector = pos / BLOCK_SECTOR_SIZE;
+    int file_sector_idx = pos / BLOCK_SECTOR_SIZE;
 
     if(pos > inode_length(inode))
       return -1;
 
     block_sector_t base_sector = inode->sector;
-    if(file_sector < INODE_DIRECT_BLOCK_COUNT)
+    if(file_sector_idx < INODE_DIRECT_BLOCK_COUNT)
     {
-      return handle_direct_block(base_sector, file_sector); 
-    }else if(file_sector < INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS)
+      return handle_direct_block(base_sector, file_sector_idx); 
+    }else if(file_sector_idx < INODE_DIRECT_BLOCK_COUNT + NUM_BLOCK_POINTERS)
     {
-      return handle_indirect_block(base_sector, file_sector);
+      return handle_indirect_block(base_sector, file_sector_idx);
     } else {
       // We are offset 140 block pointers because of the direct 
       // block and singly indirect block, so the 140th block of the 
       // file will correspond to the 0th index in the 0th doubly 
       // indirect block 
-      return handle_doubly_indirect_block(base_sector, file_sector);
+      return handle_doubly_indirect_block(base_sector, file_sector_idx);
     }
 }
 
@@ -362,11 +367,28 @@ print_inode_used_blocks(struct inode* inode)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
+static struct thread *read_ahead_thread;
+static struct list read_ahead_queue;
+static struct lock read_ahead_lock;
+static struct condition do_read_ahead;
+
+struct read_ahead_sector {
+  block_sector_t sector;
+  struct list_elem elem;
+};
+
 /* Initializes the inode module. */
 void
 inode_init (void) 
 {
   list_init (&open_inodes);
+  
+  list_init(&read_ahead_queue);
+  lock_init(&read_ahead_lock);
+  cond_init(&do_read_ahead);
+  
+  tid_t tid = thread_create("read_ahead", PRI_DEFAULT, execute_read_ahead, NULL);
+  read_ahead_thread = thread_get_by_tid(tid);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -561,6 +583,46 @@ inode_remove (struct inode *inode)
   inode->removed = true;
 }
 
+/* To be executed by the read-ahead thread. Continuously pops read-ahead
+   requests from the queue and reads the specified block in to the cache. */
+static void
+execute_read_ahead(void *aux UNUSED)
+{
+  while (true) {
+    lock_acquire(&read_ahead_lock);
+    if (list_empty(&read_ahead_queue)) {
+      cond_wait(&do_read_ahead, &read_ahead_lock);
+    }
+    struct list_elem *e = list_pop_front(&read_ahead_queue);
+    lock_release(&read_ahead_lock);
+    struct read_ahead_sector *s = list_entry(e, struct read_ahead_sector, elem);
+    cache_perform_read_ahead(s->sector);
+    free(s);
+  }
+}
+
+/* If there is a sector left in the file immediately following the 
+   requested sectors, send a read-ahead request for that sector.  */
+static void
+handle_read_ahead(struct inode *inode, int inode_len, off_t size, off_t offset)
+{
+  int last_sector_bytes_left =
+      BLOCK_SECTOR_SIZE - ((offset + size) % BLOCK_SECTOR_SIZE);
+  int total_sector_bytes_covered = (offset + size) + last_sector_bytes_left;
+  if (inode_len > total_sector_bytes_covered) {
+    struct read_ahead_sector *s =
+        (struct read_ahead_sector *) malloc(sizeof(struct read_ahead_sector));
+    s->sector = byte_to_sector(inode, total_sector_bytes_covered + 1);
+    lock_acquire(&read_ahead_lock);
+    bool was_empty = list_empty(&read_ahead_queue);
+    list_push_back(&read_ahead_queue, &s->elem);
+    if (was_empty) {
+      cond_signal(&do_read_ahead, &read_ahead_lock);
+    }
+    lock_release(&read_ahead_lock);
+  }
+}
+
 /* Reads SIZE bytes from INODE into BUFFER, starting at position OFFSET.
    Returns the number of bytes actually read, which may be less
    than SIZE if an error occurs or end of file is reached. */
@@ -571,14 +633,17 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
 
-  if(offset >= inode_length(inode)) {
-    //printf("OFFSET IS GREATER THAN LENGTH!!\n");
+  off_t inode_len = inode_length(inode);
+  
+  /* Check if bytes requested go past length of file */
+  if(offset >= inode_len) {
     return 0;
   }
-  if(offset + size > inode_length(inode)) {
-    size = inode_length(inode) - offset;
+  if(offset + size > inode_len) {
+    size = inode_len - offset;
   }
   
+  handle_read_ahead(inode, inode_len, size, offset);
 
   while (size > 0) 
     {

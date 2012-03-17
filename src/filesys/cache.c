@@ -263,6 +263,16 @@ mark_finished_operation(struct cache_elem *c)
   lock_release(&cache_lock);
 }
 
+void
+cache_perform_read_ahead(block_sector_t sector)
+{
+  lock_acquire(&cache_lock);
+  struct cache_elem* c = cache_get(sector);
+  lock_release(&cache_lock);
+  
+  mark_finished_operation(c);
+}
+
 /* Read SIZE bytes from SECTOR into BUFFER */
 void 
 cache_read_bytes(block_sector_t sector, void* buffer, int size,

@@ -121,7 +121,6 @@ static void syscall_create(struct intr_frame * f)
   char* fname = *(char**)get_nth_parameter(f->esp, 1, sizeof(char*), f); 
   syscall_check_user_pointer(fname, f);
 
-  //printf("syscall.c:syscall_create, filename=%s", fname);
   int len = strlen(fname);
 
   if(len < 1 || len > MAX_FILE_NAME){
@@ -290,6 +289,7 @@ syscall_exit(struct intr_frame *f)
   exit_current_process(status);
 }
 
+/* Execute the change directory system call */
 static void syscall_chdir(struct intr_frame *f)
 {
   void* esp = f->esp;
@@ -297,9 +297,7 @@ static void syscall_chdir(struct intr_frame *f)
   syscall_check_user_pointer(dir, f);
   bool success = true;
   
-  // todo: synchronization??
   struct dir* cur_dir = thread_get_working_directory();
-  //printf("CUR DIR IS %p CHANGING TO %s\n", cur_dir, dir);
   
   // open new directory
   struct inode* inode = filesys_lookup(dir);
@@ -316,6 +314,7 @@ static void syscall_chdir(struct intr_frame *f)
   f->eax = success;
 }
 
+/* Execute the make directory system call */
 static void syscall_mkdir(struct intr_frame *f)
 {
   void* esp = f->esp;
@@ -338,7 +337,6 @@ static void syscall_mkdir(struct intr_frame *f)
     return;
   }
   
-  //printf("syscall.c:syscall_mkdir: opening parent dir for path %s\n", dir);
   // The parent directory must already exist
   struct dir* parent_dir = dir_open_parent(dir);
   if(parent_dir == NULL)
@@ -357,8 +355,6 @@ static void syscall_mkdir(struct intr_frame *f)
     return; 
   }
   inode = inode_open(result);
-  
-  //printf("syscall.c:syscall_mkdir: allocated inode %d\n", result);
 
   // Create a new directory
   struct inode* parent_inode = dir_get_inode(parent_dir);
@@ -371,15 +367,13 @@ static void syscall_mkdir(struct intr_frame *f)
   dir_add(parent_dir, name, result);
   
   dir_close(parent_dir);
-  //printf("OK GOING TO CLOSE CHILD INODE NOW!!\n");
   inode_close(inode);
-  
-  //printf("JUST ADDED %s TO PARENT %d\n", name, inode_get_inumber(parent_inode));
   
   f->eax = true;
   return;
 }
 
+/* Execute the readdir system call */
 static void syscall_readdir(struct intr_frame *f)
 {
   void* esp = f->esp;
@@ -409,6 +403,7 @@ static void syscall_readdir(struct intr_frame *f)
   f->eax = success;
 }
 
+/*  Execute the is directory system call */
 static void syscall_isdir(struct intr_frame *f)
 {
   void* esp = f->esp;
@@ -419,6 +414,7 @@ static void syscall_isdir(struct intr_frame *f)
   f->eax = file_isdir (fd_elem->f);
 }
 
+/* Find the inumber for the current file descriptor */
 static void syscall_inumber(struct intr_frame *f)
 {
   void* esp = f->esp;
@@ -659,11 +655,6 @@ syscall_open(struct intr_frame *f)
   }
   int fd = thread_add_file_descriptor_elem(fi)->fd;
 
-/*
-  printf("syscall.c:syscall_open: fd=%d\n", fd);
-  printf("syscall.c:syscall_open  file inum = %d\n",
-    inode_get_inumber(file_get_inode(fi)));
-  */
   /* If a directory we need to open the dir */
   if(file_isdir(fi)) {
     struct dir* dir = dir_open(file_get_inode(fi));

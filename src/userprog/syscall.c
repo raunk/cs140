@@ -21,6 +21,7 @@
 #include "vm/frame.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "filesys/free-map.h"
 #include <stdbool.h>
 
 static void* get_nth_parameter(void* esp, int param_num, int datasize, 
@@ -605,8 +606,6 @@ syscall_write(struct intr_frame *f)
   int fd = *(int*)get_nth_parameter(esp, 1, sizeof(int), f);
   char* buffer = *(char**)get_nth_parameter(esp, 2, sizeof(char*), f);
   unsigned length = *(unsigned*)get_nth_parameter(esp, 3, sizeof(unsigned), f);
-
-//  printf("syscall.c:syscall_write: Write len=%d to fd=%d\n", length, fd);
   
   /* Make sure beginning and end of buffer from user are valid addresses. */
   syscall_check_user_pointer(buffer, f);
@@ -636,20 +635,8 @@ syscall_write(struct intr_frame *f)
   // Make sure we are writing to something writeable
   if(file_isdir(fd_elem->f))
     exit_current_process(-1);
-  /*
-  printf("syscall.c:syscall_write: file pointer = %p\n",
-      fd_elem->f);
-
-
-  printf("syscall.c:syscall_write  file inum = %d\n",
-    inode_get_inumber(file_get_inode(fd_elem->f)));
-    */
+    
   off_t bytes_written = file_write(fd_elem->f, buffer, length);
-  
-  /*
-  printf("syscall.c:syscall_write  wrote bytes = %d\n",
-    bytes_written);
-  */
   
   f->eax = bytes_written;
 }

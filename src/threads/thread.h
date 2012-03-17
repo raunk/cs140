@@ -258,5 +258,4 @@ struct mmap_elem* thread_lookup_mmap_entry(int map_id);
 /* Get working directory */
 struct dir* thread_get_working_directory(void); 
 
-
 #endif /* threads/thread.h */

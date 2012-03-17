@@ -13,6 +13,8 @@
 struct block *fs_device;
 
 static void do_format (void);
+bool is_relative_path(const char* pathname);
+struct inode* filesys_lookup_recursive(const char* pathname, struct dir* cur);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -106,17 +108,9 @@ filesys_create (const char *name, off_t initial_size)
                   && inode_create (inode_sector, initial_size, false)
                   && dir_add (dir, file_name, inode_sector));
 
-//  printf("filesys.c:filesys_create, inode_sector=%d\n");
-
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
-
-/*
-  printf("FILESYS CREATE: Wantd file name=%s, got sector=%d\n",
-      name, inode_sector);
-*/
-//
 
   return success;
 }

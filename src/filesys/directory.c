@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 /* A directory. */
 struct dir 
@@ -20,26 +21,6 @@ struct dir_entry
     char name[NAME_MAX + 1];            /* Null terminated file name. */
     bool in_use;                        /* In use or free? */
   };
-
-
-void
-print_dir(struct dir* dir)
-{
-  struct dir_entry e;
-  size_t ofs;
-  printf("directory.c:print_dir--------- DIR ENTRIES FOR -------------------\n");
-  printf("\t\tDIR IS %p\n", dir);
-  printf("\t\tINODE IS %d\n", inode_get_inumber(dir->inode));
-  for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
-       ofs += sizeof e) 
-  {
-    printf("\t\tDir Entry: sector=%d, name=%s, inused=%d\n", 
-         e.inode_sector, e.name, e.in_use); 
-        
-  }
-  printf("\t\t------------- END DIR ENTRIES FOR -------------------\n");
-  return false;
-}
 
 /* Creates a directory with parent directory PARENT with 
    space for ENTRY_CNT entries in the
@@ -98,10 +79,6 @@ dir_open_parent(const char* name)
   char cpy[len + 1];
   strlcpy(cpy, name, len + 1);
 
-/*  printf("Open parent of=%s\n", name);
-
-  printf("Our cpy = %s\n", cpy);
-*/
   char* last_slash = strrchr(cpy, '/');
   // We are in the root directory
   if(last_slash == 0 || last_slash == cpy)

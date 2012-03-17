@@ -450,7 +450,7 @@ thread_free_file_descriptor_elems(struct thread* t)
     struct file_descriptor_elem *fd_elem =
         list_entry (e, struct file_descriptor_elem, elem);
     struct list_elem *next_e = list_next(e);
-    safe_file_close(fd_elem->f);
+    file_close(fd_elem->f);
     free(fd_elem);
     e = next_e;
   }

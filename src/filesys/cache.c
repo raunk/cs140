@@ -214,7 +214,6 @@ cache_evict()
     cond_wait(&io_finished, &cache_lock);
     c = get_oldest_cache_elem();
   }
-  
   int sector_being_evicted = c->sector;
   mark_sector_under_io(sector_being_evicted);
   
@@ -223,17 +222,17 @@ cache_evict()
     cond_wait(&operations_finished, &cache_lock);
   }
   
-  list_remove(&c->list_elem);
-  hash_delete(&cache_hash, &c->hash_elem);
-  
   lock_release(&cache_lock);
   
   /* I/O action, so don't block operations on other sectors*/
   if (c->is_dirty) {
     block_write(fs_device, c->sector, c->data);
   }
-  
+
   lock_acquire(&cache_lock);
+  
+  list_remove(&c->list_elem);
+  hash_delete(&cache_hash, &c->hash_elem);
   free(c);
   unmark_sector_under_io(sector_being_evicted);
   cond_broadcast(&io_finished, &cache_lock);
@@ -268,7 +267,7 @@ mark_finished_operation(struct cache_elem *c)
 void 
 cache_read_bytes(block_sector_t sector, void* buffer, int size,
                         int offset)
-{ 
+{
   lock_acquire(&cache_lock);
   struct cache_elem* c = cache_get(sector);
   lock_release(&cache_lock);
@@ -287,7 +286,7 @@ void cache_write_bytes(block_sector_t sector, const void* buffer,
   struct cache_elem* c = cache_get(sector);
   c->is_dirty = true;
   lock_release(&cache_lock);
-  
+
   /* Don't block other processes here because non-I/O action */
   if (offset == 0 && size == BLOCK_SECTOR_SIZE) {
     memset(c->data, 0, BLOCK_SECTOR_SIZE);
@@ -303,7 +302,7 @@ void cache_set_to_zero(block_sector_t sector)
   struct cache_elem *c = cache_get(sector);
   c->is_dirty = true;
   lock_release(&cache_lock);
-  
+
   /* Don't block other processes here because non-I/O action */
   memset(c->data, 0, BLOCK_SECTOR_SIZE);
   
@@ -325,7 +324,6 @@ cache_get(block_sector_t sector)
 {
   if (sector > sector_max)
     PANIC("cache_get(): INVALID SECTOR REQUESTED");
-  // FREE_MAP_SECTOR is 0??
   if (sector == FREE_MAP_SECTOR)
     return &free_map_cache;
   
@@ -342,7 +340,7 @@ cache_get(block_sector_t sector)
     cache_hits++;
   } else {
     if (cache_size() == MAX_CACHE_SIZE) {
-      cache_evict();  
+      cache_evict();
     } 
     c = cache_insert(sector);
     cache_misses++;

@@ -184,7 +184,7 @@ supp_page_bring_into_memory(void* addr, bool write)
 
      /* Load this page. Don't read from disk if bytes_to_read is zero. */
      if (bytes_to_read > 0 &&
-        safe_file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
+        file_read_at (entry->f, kpage, bytes_to_read, entry->off) != bytes_to_read)
        {
          frame_free_page (kpage);
          /* Failed to read all data from file. Kill the process. */

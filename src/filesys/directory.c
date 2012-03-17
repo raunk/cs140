@@ -6,12 +6,15 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 
 /* A directory. */
 struct dir 
   {
     struct inode *inode;                /* Backing store. */
     off_t pos;                          /* Current position. */
+    struct lock lock;                      /* Lock to prevent concurrent
+                                operations on same directory */
   };
 
 /* A single directory entry. */
@@ -50,6 +53,7 @@ dir_open (struct inode *inode)
     {
       dir->inode = inode;
       dir->pos = 0;
+      lock_init(&dir->lock);
       return dir;
     }
   else
@@ -220,6 +224,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  lock_acquire(&dir->lock);
 
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
@@ -267,6 +272,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   }
 
  done:
+  
+  lock_release(&dir->lock);
+
   return success;
 }
 
@@ -283,6 +291,8 @@ dir_remove (struct dir *dir, const char *name)
 
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
+
+  lock_acquire(&dir->lock);
 
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
@@ -304,6 +314,7 @@ dir_remove (struct dir *dir, const char *name)
 
  done:
   inode_close (inode);
+  lock_release(&dir->lock);
   return success;
 }
 
@@ -336,6 +347,8 @@ dir_isempty (struct dir *dir)
 bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
+  lock_acquire(&dir->lock);
+
   struct dir_entry e;
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
@@ -343,8 +356,10 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+          lock_release(&dir->lock);
           return true;
         } 
     }
+  lock_release(&dir->lock);
   return false;
 }

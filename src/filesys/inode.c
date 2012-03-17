@@ -48,7 +48,7 @@ bool free_map_setup = false;
 #define DOUBLY_INDIRECT_BLOCK_INDEX 13 
 #define INODE_INDEX_COUNT 14
 #define NUM_BLOCK_POINTERS (BLOCK_SECTOR_SIZE / sizeof(uint32_t))
- 
+
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -212,6 +212,7 @@ handle_direct_block(block_sector_t base_sector, int file_sector_idx)
       return -1; 
     }
     write_inode_disk_pointer(base_sector, file_sector_idx, result);
+    cache_set_to_zero(result);
   }  
   
   return result;
@@ -242,6 +243,7 @@ handle_indirect_block(block_sector_t base_sector, int file_sector_idx)
       return -1; 
     }
     write_indirect_block_pointer(ib_sector, idx, result);
+    cache_set_to_zero(result);
   }
 
   return result;
@@ -289,6 +291,7 @@ handle_doubly_indirect_block(block_sector_t base_sector, int file_sector_idx)
       return -1; 
     }
     write_indirect_block_pointer(next_block, second_idx, result);
+    cache_set_to_zero(result);
   }
   
   return result;

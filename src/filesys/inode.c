@@ -35,7 +35,12 @@ static void execute_write_behind(void *aux UNUSED);
 
 static void handle_read_ahead(struct inode *inode, int inode_len,
     off_t size, off_t offset);
-
+    
+void init_indirect_block(block_sector_t sector);
+void print_index(block_sector_t* b);
+void print_indirect(block_sector_t sec);
+void free_inode_used_blocks(struct inode* inode);
+void check_length(struct inode* inode, off_t new_length);
 
 bool free_map_setup = false;
 
@@ -84,7 +89,8 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-//    struct inode_disk data;             /* Inode content. */
+    int read_limit;                     /* Reads not allowed passed here (used for
+                                           concurrent access) */
   };
 
 
@@ -310,10 +316,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
     ASSERT (inode != NULL);
     // TODO: Fail if bigger pos > 8MB
 
-/*    if(inode->sector == FREE_MAP_SECTOR)
-      return FREE_MAP_SECTOR;
-*/
-    int file_sector_idx = pos / BLOCK_SECTOR_SIZE;
+    block_sector_t file_sector_idx = pos / BLOCK_SECTOR_SIZE;
 
     if(pos > inode_length(inode))
       return -1;
@@ -350,26 +353,6 @@ free_inode_used_blocks(struct inode* inode)
 
   free_map_release(inode->sector, 1);
 }
-
-
-void
-print_inode_used_blocks(struct inode* inode)
-{
-/*  printf("###################\n");
-  printf("Blocks used by inode=%d\n", inode_get_inumber(inode));
-  off_t len = inode_length(inode);
-  off_t cur = 0;
-  while(len > 0)
-  {
-    block_sector_t x = byte_to_sector(inode, cur);
-    printf("%d ", x); 
-    cur += BLOCK_SECTOR_SIZE;
-    len -= BLOCK_SECTOR_SIZE; 
-  }
-  printf("\n###################\n");
-  */
-}
-
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -426,7 +409,6 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-      size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->is_dir = is_dir;
       disk_inode->magic = INODE_MAGIC;
@@ -440,14 +422,7 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
 
       cache_write(sector, disk_inode);
       
-      /// Just created inode santiy check
-/*      struct cache_elem* c = cache_get(sector);
-      struct inode_disk* id = (struct inode_disk*)c->data;
-      printf("INODE CREATE SANITY CHECK==========\n");
-      printf("Cache sector, should show %d, shows %d\n", sector, c->sector);
-      printf("Disk sector, should show %d, shows %d\n", sector, id->start);
-      printf("Length should show %d, shows %d\n", length, id->length);
-*/
+      // Just created inode santiy check
       success = true;
       free (disk_inode);
     }
@@ -517,6 +492,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  inode->read_limit = NO_READ_LIMIT;
 
   return inode;
 }
@@ -536,31 +512,6 @@ inode_get_inumber (const struct inode *inode)
 {
   return inode->sector;
 }
-
-
-
-/* Free the direct blocks */
-void
-free_direct_blocks(struct inode_disk * id)
-{
-  int i;
-  for(i = 0; i < INODE_DIRECT_BLOCK_COUNT; i++)
-  {
-    if(id->index[i] != 0)
-      free_map_release(id->index[i], 1); 
-  }
-}
-
-
-void 
-free_indirect_blocks(struct inode_disk* id) 
-{
-  block_sector_t ib = id->index[INDIRECT_BLOCK_INDEX];
-  printf("Freeing ib= %d\n", ib);
-}
-
-void
-free_doubly_indirect_blocks(struct inode_disk* id) {}
 
 /* Closes INODE and writes it to disk.
    If this was the last reference to INODE, frees its memory.
@@ -613,6 +564,8 @@ static void
 execute_read_ahead(void *aux UNUSED)
 {
   while (true) {
+    if(cache_is_done()) break;
+
     lock_acquire(&read_ahead_lock);
     if (list_empty(&read_ahead_queue)) {
       cond_wait(&do_read_ahead, &read_ahead_lock);
@@ -655,9 +608,13 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
-  uint8_t *bounce = NULL;
 
   off_t inode_len = inode_length(inode);
+  
+  /* Make sure no limit imposed */
+  if(inode->read_limit != NO_READ_LIMIT) {
+    inode_len = inode->read_limit;
+  }
   
   /* Check if bytes requested go past length of file */
   if(offset >= inode_len) {
@@ -666,6 +623,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   if(offset + size > inode_len) {
     size = inode_len - offset;
   }
+  
   
   handle_read_ahead(inode, inode_len, size, offset);
 
@@ -711,10 +669,11 @@ check_length(struct inode* inode, off_t new_length)
 {
   struct inode_disk id;
   cache_read(inode->sector, &id);
-//  printf("Old len=%d, New len=%d\n", id->length, new_length);
+  
   if(new_length > id.length)
     {
       // Write the new length back to the buffer cache block.
+      inode->read_limit = id.length;
       write_inode_disk_length(inode->sector, new_length);
     }  
 }
@@ -730,15 +689,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-  uint8_t *bounce = NULL;
 
   if (inode->deny_write_cnt)
     return 0;
 
-  check_length(inode, offset + size);
-
 //  printf("inode.c:inode_write_at: Writing inode=%d\n", inode_get_inumber(inode));
-
+  check_length(inode, offset + size);
+  
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
@@ -767,6 +724,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
+    
+  inode->read_limit = NO_READ_LIMIT;
 
   return bytes_written;
 }

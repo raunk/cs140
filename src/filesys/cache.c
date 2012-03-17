@@ -15,9 +15,13 @@ struct cache_elem {
   struct list_elem write_behind_elem;
   char data[512]; /* Cache data */
 };
+static struct lock done_lock;
+
+static int cache_stop = 0;
 
 static struct list cache_list;
 static struct hash cache_hash;
+
 
 static struct lock cache_lock;
 static struct condition io_finished;
@@ -90,6 +94,7 @@ cache_init()
   
   list_init(&sectors_under_io);
   lock_init(&cache_lock);
+  lock_init(&done_lock);
   cond_init(&io_finished);
   cond_init(&operations_finished);
   
@@ -265,8 +270,12 @@ mark_finished_operation(struct cache_elem *c)
 void
 cache_perform_read_ahead(block_sector_t sector)
 {
+
   lock_acquire(&cache_lock);
+  lock_acquire(&done_lock);
+  if(cache_is_done()) return;
   struct cache_elem* c = cache_get(sector);
+  lock_release(&done_lock);
   lock_release(&cache_lock);
   
   mark_finished_operation(c);
@@ -343,6 +352,9 @@ cache_get(block_sector_t sector)
   }
 
   struct cache_elem *c = cache_lookup(sector);
+
+  if(cache_is_done()) return NULL;
+
   if (c) {
     /* Block is already in cache, so move it to the front */
     cache_reinsert(c);
@@ -367,6 +379,12 @@ cache_stats(void)
 }
 
 
+int
+cache_is_done(void)
+{
+  return cache_stop;
+}
+
 /* The filesystem is done, so we should write all the
  * dirty cache blocks back to disk, and free the malloc'd
  * cache elements */
@@ -375,8 +393,11 @@ cache_done(void)
 {
   cache_flush(); 
 
-  /* Free cache elements */
   lock_acquire(&cache_lock);
+  lock_acquire(&done_lock);
+  cache_stop = 1;  
+  /* Free cache elements */
+  
   struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list);
     /* must get next before free */)
@@ -387,6 +408,8 @@ cache_done(void)
 
       free(c);
     }
+  
+  lock_release(&done_lock);
   lock_release(&cache_lock);
 }
 
@@ -395,52 +418,59 @@ void
 cache_flush(void)
 {
   struct list write_behind_blocks;
-  list_init(&write_behind_blocks);
-  struct list_elem *e;
-  lock_acquire(&cache_lock);
-  for (e = list_begin (&cache_list); e != list_end (&cache_list);
-       e = list_next (e))
-    {
-      struct cache_elem* c = 
-          list_entry(e, struct cache_elem, list_elem);
-      if (!is_sector_under_io(c->sector) && c->is_dirty) {
-        mark_sector_under_io(c->sector);
-        c->is_dirty = false;
-        list_push_back(&write_behind_blocks, &c->write_behind_elem);
-      }
-    }
-  lock_release(&cache_lock);
-  
-  for (e = list_begin (&write_behind_blocks); e != list_end (&write_behind_blocks);
-       e = list_next (e))
-    {
-      struct cache_elem* c = list_entry(e, struct cache_elem, write_behind_elem);
-      block_write(fs_device, c->sector, c->data);
-    }
-    
-    // struct list_elem *e;
-    // for (e = list_begin (&cache_list); e != list_end (&cache_list);
-    //      e = list_next (e))
-    //   {
-    //     struct cache_elem* c = 
-    //         list_entry(e, struct cache_elem, list_elem);
-    // 
-    //     if(c->is_dirty)
-    //     {
-    //       block_write(fs_device, c->sector, c->data);
-    //     }
-    //   }
-    
-     block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
-  
-     lock_acquire(&cache_lock);
-     for (e = list_begin (&write_behind_blocks); e != list_end (&write_behind_blocks);
-          e = list_next (e))
-       {
-         struct cache_elem* c = list_entry(e, struct cache_elem, write_behind_elem);
-         unmark_sector_under_io(c->sector);
+   list_init(&write_behind_blocks);
+   struct list_elem *e;
+   lock_acquire(&cache_lock);
+   for (e = list_begin (&cache_list); e != list_end (&cache_list);
+        e = list_next (e))
+     {
+       struct cache_elem* c = 
+           list_entry(e, struct cache_elem, list_elem);
+       if (!is_sector_under_io(c->sector) && c->is_dirty) {
+         mark_sector_under_io(c->sector);
+         while (c->num_operations > 0) {
+           cond_wait(&operations_finished, &cache_lock);
+         }
+         c->is_dirty = false;
+         list_push_back(&write_behind_blocks, &c->write_behind_elem);
        }
-     lock_release(&cache_lock);
+     }
+   lock_release(&cache_lock);
+   
+   for (e = list_begin (&write_behind_blocks); e != list_end (&write_behind_blocks);
+        e = list_next (e))
+     {
+       struct cache_elem* c = list_entry(e, struct cache_elem, write_behind_elem);
+       block_write(fs_device, c->sector, c->data);
+     }
+     
+      block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
+   
+      lock_acquire(&cache_lock);
+      for (e = list_begin (&write_behind_blocks); e != list_end (&write_behind_blocks);
+           e = list_next (e))
+        {
+          struct cache_elem* c = list_entry(e, struct cache_elem, write_behind_elem);
+          unmark_sector_under_io(c->sector);
+        }
+      lock_release(&cache_lock);
   
+  
+  
+  // lock_acquire(&cache_lock);
+  //    struct list_elem *e;
+  //        for (e = list_begin (&cache_list); e != list_end (&cache_list);
+  //             e = list_next (e))
+  //          {
+  //            struct cache_elem* c = 
+  //                list_entry(e, struct cache_elem, list_elem);
+  //        
+  //            if(c->is_dirty)
+  //            {
+  //              block_write(fs_device, c->sector, c->data);
+  //            }
+  //          }
+  //          block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
+  //          lock_release(&cache_lock);
 }
 

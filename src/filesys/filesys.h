@@ -18,5 +18,7 @@ bool filesys_create (const char *name, off_t initial_size);
 struct file *filesys_open (const char *name);
 bool filesys_remove (const char *name);
 struct inode* filesys_lookup(const char* pathname);
+bool last_path_component(const char* pathname, char* dest);
+bool first_path_component(const char* pathname, char* dest);
 
 #endif /* filesys/filesys.h */

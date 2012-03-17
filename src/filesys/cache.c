@@ -420,9 +420,7 @@ cache_done(void)
 void
 cache_flush(void)
 {
-  printf("trying to acquire\n");
   lock_acquire(&cache_lock);
-   printf("ACQUIRED\n");
   struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list);
        e = list_next (e))
@@ -433,12 +431,6 @@ cache_flush(void)
       if(c->is_dirty && !is_sector_under_io(c->sector))
       {
         mark_sector_under_io(c->sector);
-        printf("waiting for op finished\n");
-        while (c->num_operations > 0) {
-          cond_wait(&operations_finished, &cache_lock);
-        }
-        printf("OP finished\n");
-        
         lock_release(&cache_lock);
         block_write(fs_device, c->sector, c->data);
         lock_acquire(&cache_lock);

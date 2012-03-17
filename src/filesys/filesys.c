@@ -29,9 +29,6 @@ filesys_init (bool format)
   cache_init();
 
   inode_init ();
-
-//  printf("filesys.c:filesys_init : call free_map_init\n");
-
   free_map_init ();
 
   if (format) 
@@ -72,8 +69,8 @@ last_path_component(const char* pathname, char* dest)
     strlcpy(dest, last_slash + 1, len); 
     return len != 1;
   }
-  // Then there is no slash so the full path is the last 
-  // path component.
+  /* There is no slash so the full path is the last 
+     path component. */
   strlcpy(dest, pathname, path_len + 1);
   return true;
 }
@@ -86,23 +83,15 @@ last_path_component(const char* pathname, char* dest)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
-//  printf("Filesys create %s, %d\n", name, initial_size);
   block_sector_t inode_sector = 0;
   // Open the parent directory
   struct dir* dir = dir_open_parent(name);
-
-//  printf("filesys.c:filesys_create\n");
-//  print_dir(dir);
   
   // Extract the last part of the pathname, which should 
   // be the filename
   char file_name[NAME_MAX + 1]; 
   bool is_file = last_path_component(name, file_name); 
 
-/*
-  printf("filesys.c:filesys_create, filename=%s, is_file=%d, to_dir=%p\n",
-      file_name, is_file, dir_get_inode(dir));
-  */
   bool success = (dir != NULL && is_file
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, false)
@@ -130,7 +119,7 @@ first_path_component(const char* pathname, char* dest)
   {
     first_component_length = strlen(pathname);      
     is_last = true;
-  }else{
+  } else {
     first_component_length = next_slash - pathname; 
     is_last = false;
   }
@@ -156,8 +145,6 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   while(pathname[0] == '/')
     pathname++;
 
-//  printf("filesys.c:filesys_lookup_recursive, Lookup in pathname %s\n", pathname);
-
   bool is_last_component = first_path_component(pathname, component);
   
   /* Base case */
@@ -167,8 +154,6 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
     return inode;
   }
 
-//  printf("filesys.c:filesys_lookup_recursive, First component '%s'\n", component);
-
   struct inode* inode = NULL;
 
   bool found = dir_lookup(cur, component, &inode);
@@ -176,19 +161,14 @@ filesys_lookup_recursive(const char* pathname, struct dir* cur)
   /* Close the directory if we opened it (working dir is already open) */
   dir_close(cur);
   
-//  printf("filesys.c:filesys_lookup_recursive, Found component? %d\n", found);
-
   if(!found)
     return NULL;
 
 
   if(is_last_component)
   {
-//    printf("filesys.c:filesys_lookup_recursive, Was last component\n");
-//    printf("filesys.c:filesys_lookup_recursive, inum=%d\n",
-  //      inode_get_inumber(inode));
     return inode; 
-  }else{
+  } else {
     struct dir* next = dir_open(inode);
     return filesys_lookup_recursive(pathname + strlen(component), next);    
   }
@@ -208,24 +188,16 @@ is_relative_path(const char* pathname)
 struct inode* 
 filesys_lookup(const char* pathname)
 {
-//  printf("Lookup %s\n", pathname);
-
   struct dir* start_dir = NULL; 
   if(is_relative_path(pathname))
   {
-//    printf("filesys.c:filesys_lookup, Relative\n");
     start_dir = thread_get_working_directory();
-  }else{
-//    printf("filesys.c:filesys_lookup, Absolute\n");
+  } else {
     start_dir = dir_open(inode_open(ROOT_DIR_SECTOR)); 
   }
-  
-  
 
   return filesys_lookup_recursive(pathname, start_dir); 
 }
-
-
 
 /* Opens the file with the given NAME.
    Returns the new file if successful or a null pointer
@@ -235,22 +207,7 @@ filesys_lookup(const char* pathname)
 struct file *
 filesys_open (const char *name)
 {
- /* struct dir *dir = dir_open_root ();
-  struct inode *inode = NULL;
-
-  //printf("Dir = %p\n", dir);
-
-  if (dir != NULL)
-    dir_lookup (dir, name, &inode);
-  dir_close (dir);
-*/
-  //printf("Call file_open(%p)\n", inode);
-
-//  printf("filesys.c:filesys_open, name=%s\n", name);
-
   struct inode* inode = filesys_lookup(name);
-  
-//  printf("filesys.c:filesys_open, inum=%d\n", inode_get_inumber(inode)); 
   return file_open (inode);
 }
 
@@ -267,23 +224,17 @@ filesys_remove (const char *name)
   if(inode == NULL) {
     return false;
   }
-  
-  //printf("Removing inumber %d\n", inode_get_inumber(inode));
-  //printf("-----------------------------------------------\n");
  
   if(inode_isdir(inode)) {
     
     // if is current working dir
     if(dir_get_inode(thread_get_working_directory()) == inode) {
-      //printf("Failing inode is workind dir...\n");
       return false;
     }
     
     // if its already open
-    //printf("Going to remove %d\n", inode_get_inumber(inode));
     inode_close(inode);
     if(inode_isopen(inode)) {
-      //printf("Failing inode is open...\n");
       return false;
     }
      
@@ -292,7 +243,6 @@ filesys_remove (const char *name)
     inode = filesys_lookup(name);
     struct dir *child = dir_open(inode);
     if(!dir_isempty(child)) {
-      //printf("Failing dir is not empty...\n");
       dir_close(child);
       return false;
     }
@@ -306,8 +256,7 @@ filesys_remove (const char *name)
   
   // only close dir if we successfully removed it
   dir_close (dir); 
-  //printf("-----------------------------------------------\n");
-
+  
   return success;
 }
 

@@ -37,8 +37,6 @@ static void handle_read_ahead(struct inode *inode, int inode_len,
     off_t size, off_t offset);
     
 void init_indirect_block(block_sector_t sector);
-void print_index(block_sector_t* b);
-void print_indirect(block_sector_t sec);
 void free_inode_used_blocks(struct inode* inode);
 void check_length(struct inode* inode, off_t new_length);
 
@@ -97,37 +95,7 @@ struct inode
 void
 init_indirect_block(block_sector_t sector)
 {
-  // struct indirect_block ib;
-  // memset(&ib, 0, NUM_BLOCK_POINTERS);
-  // cache_write(sector, &ib);
   cache_set_to_zero(sector);
-}
-
-
-
-void
-print_index(block_sector_t* b)
-{
-  int i;
-  printf("=====\n");
-  for(i = 0; i < 12; i++)
-    printf("%d ", b[i]);
-  printf("\n~~~~\n");
-}
-
-void
-print_indirect(block_sector_t sec)
-{
-  struct indirect_block ib;
-  cache_read(sec, &ib);
-  int i;
-  printf("\n");
-  for(i = 0; i < 128; i++)
-  {
-    printf("%d ", ib.pointers[i]);
-    if(i % 32 == 0) printf("\n");
-  }
-  printf("\n");
 }
 
 static block_sector_t
@@ -175,14 +143,9 @@ write_inode_disk_pointer(block_sector_t sector, int ptr_index,
 static bool
 read_inode_disk_is_dir(block_sector_t sector)
 {
-  /* The free map sector is a special case */
-/*  if(sector == FREE_MAP_SECTOR)
-     return false;
-*/
   bool is_dir;
   cache_read_bytes(sector, &is_dir, sizeof(bool), INODE_DISK_ISDIR_OFFSET);
   return is_dir & 0x1;
-//  return is_dir;
 }
 
 static off_t
@@ -211,7 +174,7 @@ handle_direct_block(block_sector_t base_sector, int file_sector_idx)
     return FREE_MAP_DATA_SECTOR;
   }
 
-  if(result == 0)//  && base_sector != FREE_MAP_SECTOR)
+  if(result == 0)
   {
     bool allocated = free_map_allocate(1, &result);
     if(!allocated) {
@@ -447,7 +410,6 @@ inode_isopen (struct inode* inode)
        e = list_next (e)) 
     {
       cur_inode = list_entry (e, struct inode, elem);
-      //printf("open inode sector: %d\n", cur_inode->sector);
       if (cur_inode == inode) 
         {
           return true; 
@@ -465,8 +427,6 @@ inode_open (block_sector_t sector)
 {
   struct list_elem *e;
   struct inode *inode;
-
-  //printf("INODE OPEN - sector %d\n", sector);
 
   /* Check whether this inode is already open. */
   for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
@@ -672,8 +632,10 @@ check_length(struct inode* inode, off_t new_length)
   
   if(new_length > id.length)
     {
-      // Write the new length back to the buffer cache block.
+      /* Set the read limit so another thread cannot read past the
+         old end of the file while we are writing it */
       inode->read_limit = id.length;
+      // Write the new length back to the buffer cache block.
       write_inode_disk_length(inode->sector, new_length);
     }  
 }
@@ -693,14 +655,12 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (inode->deny_write_cnt)
     return 0;
 
-//  printf("inode.c:inode_write_at: Writing inode=%d\n", inode_get_inumber(inode));
   check_length(inode, offset + size);
   
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
- //     printf("inode.c:inode_write_at: sector being written: %d\n", sector_idx);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int chunk_size = size < sector_left ? size : sector_left;

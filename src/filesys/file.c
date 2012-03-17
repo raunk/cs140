@@ -47,11 +47,7 @@ void
 file_close (struct file *file) 
 {
   if (file != NULL)
-    {
-      // write any dirty blocks back to disk
-      // todo: periodically flush cache????
-      //cache_flush();
-      
+    { 
       file_allow_write (file);
       inode_close (file->inode);
       free (file); 

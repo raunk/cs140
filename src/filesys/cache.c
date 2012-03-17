@@ -9,10 +9,11 @@
 struct cache_elem {
   block_sector_t sector; 
   bool is_dirty;
-  int num_operations;
-  struct list_elem list_elem; /* List element for cache*/
-  struct hash_elem hash_elem; /* Hash elemetn for cache*/
-  char data[512]; /* Cache data */ 
+  int num_operations;           /* Tracks how many other processes are currently
+                                   reading to or writing from this elem */
+  struct list_elem list_elem;   /* List element for cache*/
+  struct hash_elem hash_elem;   /* Hash elemetn for cache*/
+  char data[512];               /* Cache data */ 
 };
 static struct lock done_lock;
 
@@ -20,9 +21,8 @@ static int cache_stop = 0;
 
 static struct list cache_list;
 static struct hash cache_hash;
-
-
 static struct lock cache_lock;
+
 static struct condition io_finished;
 static struct condition operations_finished;
 static struct list sectors_under_io;
@@ -302,7 +302,8 @@ cache_read_bytes(block_sector_t sector, void* buffer, int size,
 }
 
 /* Write SIZE bytes from BUFFER into SECTOR */
-void cache_write_bytes(block_sector_t sector, const void* buffer, 
+void 
+cache_write_bytes(block_sector_t sector, const void* buffer, 
       int size, int offset)
 {
   lock_acquire(&cache_lock);
@@ -319,7 +320,8 @@ void cache_write_bytes(block_sector_t sector, const void* buffer,
   mark_finished_operation(c);
 }
 
-void cache_set_to_zero(block_sector_t sector)
+void 
+cache_set_to_zero(block_sector_t sector)
 {
   lock_acquire(&cache_lock);
   struct cache_elem *c = cache_get(sector);

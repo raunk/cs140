@@ -274,7 +274,11 @@ cache_perform_read_ahead(block_sector_t sector)
 
   lock_acquire(&cache_lock);
   lock_acquire(&done_lock);
-  if(cache_is_done()) return;
+  if(cache_is_done()) {
+    lock_release(&done_lock);
+    lock_release(&cache_lock);
+    return;
+  }
   struct cache_elem* c = cache_get(sector);
   lock_release(&done_lock);
   lock_release(&cache_lock);
@@ -392,6 +396,7 @@ cache_is_done(void)
 void
 cache_done(void)
 {
+  
   cache_flush(); 
 
   lock_acquire(&done_lock);
@@ -404,7 +409,7 @@ cache_done(void)
       struct cache_elem* c = 
           list_entry(e, struct cache_elem, list_elem);
        e = list_next (e);
-
+  
       free(c);
     }
   
@@ -415,6 +420,9 @@ cache_done(void)
 void
 cache_flush(void)
 {
+  printf("trying to acquire\n");
+  lock_acquire(&cache_lock);
+   printf("ACQUIRED\n");
   struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list);
        e = list_next (e))
@@ -422,12 +430,25 @@ cache_flush(void)
       struct cache_elem* c = 
           list_entry(e, struct cache_elem, list_elem);
 
-      if(c->is_dirty)
+      if(c->is_dirty && !is_sector_under_io(c->sector))
       {
+        mark_sector_under_io(c->sector);
+        printf("waiting for op finished\n");
+        while (c->num_operations > 0) {
+          cond_wait(&operations_finished, &cache_lock);
+        }
+        printf("OP finished\n");
+        
+        lock_release(&cache_lock);
         block_write(fs_device, c->sector, c->data);
+        lock_acquire(&cache_lock);
+        unmark_sector_under_io(c->sector);
+        cond_broadcast(&io_finished, &cache_lock);
       }
     }
 
   block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
+  
+  lock_release(&cache_lock);
 }
 

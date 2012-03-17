@@ -367,6 +367,28 @@ cache_stats(void)
   printf("Cache hits=%d, misses=%d\n", cache_hits, cache_misses);
 }
 
+
+/* The filesystem is done, so we should write all the
+ * dirty cache blocks back to disk, and free the malloc'd
+ * cache elements */
+void
+cache_done(void)
+{
+  cache_flush(); 
+
+  /* Free cache elements */
+  struct list_elem *e;
+  for (e = list_begin (&cache_list); e != list_end (&cache_list);
+    /* must get next before free */)
+    {
+      struct cache_elem* c = 
+          list_entry(e, struct cache_elem, list_elem);
+       e = list_next (e);
+
+      free(c);
+    }
+}
+
 /* Write any dirty blocks back to disk */
 void
 cache_flush(void)
@@ -380,15 +402,10 @@ cache_flush(void)
 
       if(c->is_dirty)
       {
-//        printf("cache.c:cache_flush: Write block %d\n", c->sector);
         block_write(fs_device, c->sector, c->data);
       }
     }
 
   block_write(fs_device, FREE_MAP_SECTOR, free_map_cache.data);
-
-//  printf("FLUSHED CACHE\n");
-
-  //TODO: free list and cache elems..
 }
 

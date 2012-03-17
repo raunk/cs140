@@ -8,6 +8,7 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "filesys/cache.h"
+#include "devices/timer.h"
 #include <stdio.h>
 
 static block_sector_t read_indirect_block_pointer(block_sector_t sector,
@@ -30,6 +31,8 @@ static block_sector_t handle_doubly_indirect_block(block_sector_t base_sector,
     int file_sector_idx);
     
 static void execute_read_ahead(void *aux UNUSED);
+static void execute_write_behind(void *aux UNUSED);
+
 static void handle_read_ahead(struct inode *inode, int inode_len,
     off_t size, off_t offset);
 
@@ -43,6 +46,8 @@ bool free_map_setup = false;
 #define DOUBLY_INDIRECT_BLOCK_INDEX 13 
 #define INODE_INDEX_COUNT 14
 #define NUM_BLOCK_POINTERS (BLOCK_SECTOR_SIZE / sizeof(uint32_t))
+#define CACHE_FLUSH_WAIT_MS 1000
+
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -371,6 +376,7 @@ print_inode_used_blocks(struct inode* inode)
 static struct list open_inodes;
 
 static struct thread *read_ahead_thread;
+static struct thread *write_behind_thread;
 static struct list read_ahead_queue;
 static struct lock read_ahead_lock;
 static struct condition do_read_ahead;
@@ -392,6 +398,11 @@ inode_init (void)
   
   tid_t tid = thread_create("read_ahead", PRI_DEFAULT, execute_read_ahead, NULL);
   read_ahead_thread = thread_get_by_tid(tid);
+
+  tid_t write_tid = thread_create("write_behind", PRI_DEFAULT, 
+      execute_write_behind, NULL);
+
+  write_behind_thread = thread_get_by_tid(write_tid);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -584,6 +595,16 @@ inode_remove (struct inode *inode)
 {
   ASSERT (inode != NULL);
   inode->removed = true;
+}
+
+
+static void
+execute_write_behind(void* aux UNUSED)
+{
+  while(true) {
+    timer_msleep(CACHE_FLUSH_WAIT_MS);
+    cache_flush();
+  } 
 }
 
 /* To be executed by the read-ahead thread. Continuously pops read-ahead

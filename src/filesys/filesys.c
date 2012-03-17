@@ -46,7 +46,7 @@ filesys_done (void)
 {
   free_map_close ();
   cache_stats();
-  cache_flush();
+  cache_done();
 }
 
 

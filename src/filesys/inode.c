@@ -8,6 +8,7 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "filesys/cache.h"
+#include "devices/timer.h"
 #include <stdio.h>
 
 static block_sector_t read_indirect_block_pointer(block_sector_t sector,
@@ -30,6 +31,8 @@ static block_sector_t handle_doubly_indirect_block(block_sector_t base_sector,
     int file_sector_idx);
     
 static void execute_read_ahead(void *aux UNUSED);
+static void execute_write_behind(void *aux UNUSED);
+
 static void handle_read_ahead(struct inode *inode, int inode_len,
     off_t size, off_t offset);
 
@@ -43,6 +46,8 @@ bool free_map_setup = false;
 #define DOUBLY_INDIRECT_BLOCK_INDEX 13 
 #define INODE_INDEX_COUNT 14
 #define NUM_BLOCK_POINTERS (BLOCK_SECTOR_SIZE / sizeof(uint32_t))
+#define CACHE_FLUSH_WAIT_MS 1000
+
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -79,7 +84,8 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-//    struct inode_disk data;             /* Inode content. */
+    int read_limit;                     /* Reads not allowed passed here (used for
+                                           concurrent access) */
   };
 
 
@@ -371,6 +377,7 @@ print_inode_used_blocks(struct inode* inode)
 static struct list open_inodes;
 
 static struct thread *read_ahead_thread;
+static struct thread *write_behind_thread;
 static struct list read_ahead_queue;
 static struct lock read_ahead_lock;
 static struct condition do_read_ahead;
@@ -392,6 +399,11 @@ inode_init (void)
   
   tid_t tid = thread_create("read_ahead", PRI_DEFAULT, execute_read_ahead, NULL);
   read_ahead_thread = thread_get_by_tid(tid);
+
+  tid_t write_tid = thread_create("write_behind", PRI_DEFAULT, 
+      execute_write_behind, NULL);
+
+  write_behind_thread = thread_get_by_tid(write_tid);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -506,6 +518,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  inode->read_limit = NO_READ_LIMIT;
 
   return inode;
 }
@@ -586,6 +599,16 @@ inode_remove (struct inode *inode)
   inode->removed = true;
 }
 
+
+static void
+execute_write_behind(void* aux UNUSED)
+{
+  while(true) {
+    timer_msleep(CACHE_FLUSH_WAIT_MS);
+    cache_flush();
+  } 
+}
+
 /* To be executed by the read-ahead thread. Continuously pops read-ahead
    requests from the queue and reads the specified block in to the cache. */
 static void
@@ -638,6 +661,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 
   off_t inode_len = inode_length(inode);
   
+  /* Make sure no limit imposed */
+  if(inode->read_limit != NO_READ_LIMIT) {
+    inode_len = inode->read_limit;
+  }
+  
   /* Check if bytes requested go past length of file */
   if(offset >= inode_len) {
     return 0;
@@ -645,6 +673,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   if(offset + size > inode_len) {
     size = inode_len - offset;
   }
+  
   
   handle_read_ahead(inode, inode_len, size, offset);
 
@@ -690,10 +719,11 @@ check_length(struct inode* inode, off_t new_length)
 {
   struct inode_disk id;
   cache_read(inode->sector, &id);
-//  printf("Old len=%d, New len=%d\n", id->length, new_length);
+  
   if(new_length > id.length)
     {
       // Write the new length back to the buffer cache block.
+      inode->read_limit = id.length;
       write_inode_disk_length(inode->sector, new_length);
     }  
 }
@@ -746,6 +776,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
+    
+  inode->read_limit = NO_READ_LIMIT;
 
   return bytes_written;
 }

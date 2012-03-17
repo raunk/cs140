@@ -246,7 +246,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
       break;
   }
 
- done:
+  done:
   
   lock_release(&dir->lock);
 

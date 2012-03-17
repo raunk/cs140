@@ -253,8 +253,7 @@ filesys_remove (const char *name)
   last_path_component(name, filename);
   
   bool success = dir != NULL && dir_remove (dir, filename);
-  
-  // only close dir if we successfully removed it
+
   dir_close (dir); 
   
   return success;
